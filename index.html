@@ -256,6 +256,7 @@
       const [submitted, setSub] = useState(false);
       const [voted, setVoted]   = useState(false);
       const [timeLeft, setTimeLeft] = useState(15);
+      const [defendLeft, setDefendLeft] = useState(20);
 
       // forms
       const [hostName, setHostName] = useState("");
@@ -289,16 +290,32 @@
           const rem = Math.max(0, Math.ceil((gs.timerEnd - now) / 1000));
           setTimeLeft(rem);
 
-          // Force transition immediately to results when countdown hits 0
           if (rem <= 0) {
             clearInterval(interval);
-            // Any client can trigger the transition safely once local time expires
-            update({ phase: "results" });
+            handleVotingEnd();
           }
         }, 200);
 
         return () => clearInterval(interval);
       }, [gs?.phase, gs?.timerEnd]);
+
+      // Local countdown loop for Defend Phase timer
+      useEffect(() => {
+        if (!gs || gs.phase !== "defend" || !gs.defendEnd) return;
+
+        const interval = setInterval(() => {
+          const now = Date.now();
+          const rem = Math.max(0, Math.ceil((gs.defendEnd - now) / 1000));
+          setDefendLeft(rem);
+
+          if (rem <= 0) {
+            clearInterval(interval);
+            advanceDefendTurn();
+          }
+        }, 200);
+
+        return () => clearInterval(interval);
+      }, [gs?.phase, gs?.defendEnd, gs?.defendIndex]);
 
       // reset local state on phase change
       useEffect(() => {
@@ -324,6 +341,72 @@
           setGs(next);
         } catch (e) { console.error(e); }
       }, [roomCode]);
+
+      // Calculate votes and navigate to either 'defend' or 'results'
+      const handleVotingEnd = async () => {
+        try {
+          const r = await window.storage.get(`room:${roomCode}`);
+          if (!r || !r.value) return;
+          const cur = JSON.parse(r.value);
+          
+          const t = Object.fromEntries(cur.players.map(p => [p,0]));
+          Object.values(cur.votes).filter(Boolean).forEach(v => t[v]++);
+          const max = Math.max(...Object.values(t));
+          const top = cur.players.filter(p => t[p] === max);
+
+          const impName = cur.players[cur.impIdx];
+          const containsImpostor = top.includes(impName);
+          const containsCrewmate = top.some(p => p !== impName);
+
+          // Tie condition between an Impostor and a Crewmate
+          if (top.length > 1 && containsImpostor && containsCrewmate) {
+            const next = {
+              ...cur,
+              phase: "defend",
+              defendPlayers: top,
+              defendIndex: 0,
+              defendEnd: Date.now() + 20000
+            };
+            await window.storage.set(`room:${roomCode}`, JSON.stringify(next));
+            setGs(next);
+          } else {
+            const next = { ...cur, phase: "results" };
+            await window.storage.set(`room:${roomCode}`, JSON.stringify(next));
+            setGs(next);
+          }
+        } catch (e) { console.error(e); }
+      };
+
+      const advanceDefendTurn = async () => {
+        try {
+          const r = await window.storage.get(`room:${roomCode}`);
+          if (!r || !r.value) return;
+          const cur = JSON.parse(r.value);
+          
+          const nextIdx = cur.defendIndex + 1;
+          if (nextIdx < cur.defendPlayers.length) {
+            const next = {
+              ...cur,
+              defendIndex: nextIdx,
+              defendEnd: Date.now() + 20000
+            };
+            await window.storage.set(`room:${roomCode}`, JSON.stringify(next));
+            setGs(next);
+          } else {
+            // Send back to revamped voting phase with empty votes
+            const freshVotes = Object.fromEntries(cur.players.map(p => [p, null]));
+            const next = {
+              ...cur,
+              phase: "voting",
+              votes: freshVotes,
+              timerEnd: Date.now() + 15000,
+              readyPlayers: [] // clear readiness
+            };
+            await window.storage.set(`room:${roomCode}`, JSON.stringify(next));
+            setGs(next);
+          }
+        } catch (e) { console.error(e); }
+      };
 
       // ── Handlers ──────────────────────────────────────────────────────────────
       const createRoom = async () => {
@@ -379,7 +462,6 @@
           const updatedReady = [...s.readyPlayers, myName];
           const threshold = (2 / 3) * s.players.length;
           
-          // Check if 2/3 or more players are ready
           if (updatedReady.length >= threshold) {
             const votes = Object.fromEntries(s.players.map(p => [p, null]));
             return {
@@ -387,7 +469,7 @@
               phase: "voting",
               readyPlayers: updatedReady,
               votes,
-              timerEnd: Date.now() + 15000 // Set exact network epoch time for 15s limit
+              timerEnd: Date.now() + 15000
             };
           }
           return { ...s, readyPlayers: updatedReady };
@@ -626,7 +708,7 @@
           );
         }
 
-        // REVEAL PHASE WITH 2/3 PROGRESSIVE VOTING OVERRIDE
+        // REVEAL PHASE
         if (phase === "reveal") {
           const hasMoreToReveal = revealIndex < players.length;
 
@@ -662,68 +744,147 @@
                   </div>
                 ))}
 
-                {revealIndex === 0 && (
-                  <div style={{ ...card(), textAlign:"center", padding:"2rem", borderStyle:"dashed", borderColor:C.bdr2 }}>
-                    <p style={{ color:C.txt4, margin:0, fontSize:"0.95rem" }}>🎭 Waiting for host to reveal cards...</p>
+                {hasMoreToReveal && (
+                  <div style={{ ...card(C.bdr2, "#11182744"), borderStyle:"dashed", textAlign:"center", padding:"1.5rem" }}>
+                    <p style={{ color:C.txt4, fontSize:"0.85rem", margin:0 }}>
+                      💡 Responses are hidden until progressive confirmation.
+                    </p>
                   </div>
                 )}
               </div>
 
-              {/* Host Control: Step through slideshow entries */}
-              {iAmHost && hasMoreToReveal && (
-                <button onClick={advanceReveal} style={{ ...btn(true, C.ind2), marginBottom: "1rem" }}>
-                  Reveal Next Answer ✨ ({revealIndex + 1}/{players.length})
-                </button>
+              {hasMoreToReveal ? (
+                iAmHost ? (
+                  <button onClick={advanceReveal} style={btn()}>
+                    Reveal Next Response ({revealIndex + 1}/{players.length}) 👇
+                  </button>
+                ) : (
+                  <WaitCard host={host} />
+                )
+              ) : (
+                <div style={{ background:C.bg2, borderRadius:"1rem", padding:"1rem", border:`1px solid ${C.bdr}`, display:"flex", flexDirection:"column", gap:"0.75rem", alignItems:"center" }}>
+                  <p style={{ color:C.txt2, fontSize:"0.85rem", margin:0, textAlign:"center" }}>
+                    Ready to head into voting? Once <strong>2/3 players</strong> declare readiness, voting unlocks!
+                  </p>
+                  <div style={{ display:"flex", gap:"0.5rem", alignItems:"center", fontSize:"0.8rem", color:C.txt4 }}>
+                    <span>Progress:</span>
+                    <strong style={{ color:C.ind }}>{readyCount} / {neededCount}</strong>
+                    <span>ready</span>
+                  </div>
+                  <button 
+                    onClick={handleReadyToVote} 
+                    disabled={iAmReady} 
+                    style={btn(!iAmReady, iAmReady ? C.bdr2 : C.grn)}
+                  >
+                    {iAmReady ? "✓ Marked Ready" : "Proceed to Voting Phase 🗳️"}
+                  </button>
+                </div>
               )}
+            </div>
+          );
+        }
 
-              {/* Global democratic choice: Anyone can initiate voting when 2/3 agree */}
-              <div style={{ ...card(iAmReady ? "#059669" : C.bdr), textAlign:"center" }}>
-                <p style={{ fontSize:"0.85rem", color:C.txt2, marginTop:0, marginBottom:"0.75rem" }}>
-                  🗳️ Ready to vote? ({readyCount}/{neededCount} players agreed)
+        // DEFEND PHASE (TIE-BREAKER INTERVENTION)
+        if (phase === "defend") {
+          const { defendPlayers = [], defendIndex = 0 } = gs;
+          const speaker = defendPlayers[defendIndex];
+          const isMyTurnToDefend = speaker === myName;
+
+          return (
+            <div style={ctr}>
+              <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>⚖️</div>
+              <h1 style={{ fontSize: "1.85rem", fontWeight: "900", color: C.ylw, margin: "0 0 0.5rem 0" }}>
+                Tie Detected!
+              </h1>
+              <p style={{ color: C.txt2, fontSize: "0.95rem", marginBottom: "2rem", padding: "0 1rem" }}>
+                There is an evaluation stalemate between the Impostor and a Crewmate. Tied candidates get time to defend themselves.
+              </p>
+
+              <div style={{ ...card(C.ylw, C.bg2), width: "100%", maxWidth: "340px", padding: "1.75rem", marginBottom: "2rem" }}>
+                <span style={lbl}>Current Speaker</span>
+                <h2 style={{ fontSize: "1.75rem", color: isMyTurnToDefend ? C.grn : C.ind, margin: "0 0 1rem 0" }}>
+                  {speaker} {isMyTurnToDefend ? "(You)" : ""}
+                </h2>
+                
+                <div style={{ fontSize: "2.5rem", fontWeight: "800", color: defendLeft <= 5 ? C.red : C.txt }}>
+                  {defendLeft}s
+                </div>
+                <p style={{ fontSize: "0.8rem", color: C.txt4, margin: "0.5rem 0 0 0" }}>
+                  Explain why you are not the Impostor!
                 </p>
-                <button 
-                  onClick={handleReadyToVote} 
-                  disabled={iAmReady}
-                  style={btn(!iAmReady, iAmReady ? C.bdr2 : "#059669")}
-                >
-                  {iAmReady ? "Waiting for 2/3 threshold..." : "I'm Ready to Vote! 🔒"}
-                </button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%", maxWidth: "300px" }}>
+                <p style={{ fontSize: "0.75rem", color: C.txt4, textTransform: "uppercase" }}>Defense Lineup:</p>
+                {defendPlayers.map((p, idx) => (
+                  <div key={p} style={{ display: "flex", justifyContent: "space-between", background: idx === defendIndex ? C.ind3 : C.bg3, border: `1px solid ${idx === defendIndex ? C.ind : C.bdr}`, borderRadius: "0.5rem", padding: "0.5rem 0.75rem", fontSize: "0.85rem" }}>
+                    <span style={{ color: idx === defendIndex ? C.txt : C.txt3 }}>{p}</span>
+                    <span>{idx < defendIndex ? "✅ Done" : idx === defendIndex ? "🎙️ Speaking" : "⏳ Next"}</span>
+                  </div>
+                ))}
               </div>
             </div>
           );
         }
 
-        // VOTING PHASE WITH 15S AUTOMATED COUNTDOWN
+        // VOTING
         if (phase === "voting") {
           return (
             <div style={{ ...page, paddingTop:"2rem" }}>
-              {/* Dynamic 15s Countdown Header */}
-              <div style={{ textAlign:"center", marginBottom:"1.5rem", background:"#450a0a44", border:`1px solid ${C.red}`, padding:"0.75rem", borderRadius:"1rem" }}>
-                <p style={{ color:C.red, fontSize:"0.75rem", textTransform:"uppercase", letterSpacing:"0.1em", margin:"0 0 2px 0", fontWeight:"700" }}>🚨 Voting finishes automatically in:</p>
-                <h2 style={{ color:C.txt, fontSize:"2.25rem", fontWeight:"900", margin:0 }}>{timeLeft}s</h2>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
+                <div>
+                  <h1 style={{ fontSize:"1.75rem", fontWeight:"800", margin:0 }}>Cast Your Vote</h1>
+                  <p style={{ color:C.txt4, fontSize:"0.875rem", marginTop:"0.25rem" }}>Who gave the impostor response?</p>
+                </div>
+                <div style={{ background:timeLeft<=5?C.red:C.bg2, border:`1px solid ${timeLeft<=5?C.red:C.bdr}`, borderRadius:"0.75rem", padding:"0.5rem 0.75rem", textAlign:"center", minWidth:"45px" }}>
+                  <p style={{ margin:0, fontSize:"0.6rem", textTransform:"uppercase", color:timeLeft<=5?C.bg:C.txt4 }}>Time</p>
+                  <p style={{ margin:0, fontSize:"1.25rem", fontWeight:"800", color:timeLeft<=5?C.txt:C.ylw }}>{timeLeft}s</p>
+                </div>
               </div>
 
               {voted ? (
-                <div style={{ textAlign:"center", padding:"2rem 0" }}>
-                  <div style={{ fontSize:"3rem", marginBottom:"0.75rem" }}>🔒</div>
-                  <h2 style={{ color:C.ind, fontSize:"1.5rem", fontWeight:"700", margin:"0 0 0.5rem 0" }}>Vote locked in!</h2>
-                  <p style={{ color:C.txt3, marginBottom:"2rem" }}>Players responded: ({votedN}/{players.length})</p>
-                  <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem", justifyContent:"center", maxWidth:"320px" }}>
+                <div style={ctr}>
+                  <div style={{ fontSize:"3rem", marginBottom:"0.5rem" }}>📥</div>
+                  <h3 style={{ color:C.grn, margin:"0 0 0.25rem 0" }}>Vote Registered!</h3>
+                  <p style={{ color:C.txt3, fontSize:"0.875rem", marginBottom:"2rem" }}>Waiting for others... ({votedN}/{players.length})</p>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem", justifyContent:"center" }}>
                     {players.map(p => <Chip key={p} name={p} done={votes[p]!=null} isMe={p===myName} />)}
                   </div>
                 </div>
               ) : (
-                <div>
-                  <h2 style={{ color:C.ind, fontSize:"1.75rem", fontWeight:"800", margin:"0 0 0.25rem 0" }}>Your Vote</h2>
-                  <p style={{ color:C.txt4, fontSize:"0.875rem", marginBottom:"1.5rem" }}>Who do you think got a different question?</p>
-                  <div style={{ display:"flex", flexDirection:"column", gap:"0.625rem", marginBottom:"2rem" }}>
-                    {players.filter(p => p!==myName).map(p => (
-                      <button key={p} onClick={() => setMyVote(p)} style={{ textAlign:"left", padding:"1rem", borderRadius:"1rem", border:`2px solid ${myVote===p?C.ind:C.bdr}`, background:myVote===p?C.ind3:C.bg2, color:C.txt, fontSize:"1rem", fontWeight:"500", cursor:"pointer" }}>
-                        {myVote===p?"✓ ":""}{p}
-                      </button>
-                    ))}
-                  </div>
-                  <button onClick={submitVote} disabled={!myVote} style={btn(!!myVote)}>Lock In Vote 🔒</button>
+                <div style={{ display:"flex", flexDirection:"column", gap:"0.75rem" }}>
+                  {players.map(p => {
+                    const isSelf = p === myName;
+                    return (
+                      <div 
+                        key={p} 
+                        onClick={() => !isSelf && setMyVote(p)}
+                        style={card(
+                          myVote === p ? C.ind : C.bdr, 
+                          isSelf ? C.bg3 : myVote === p ? C.ind3 : C.bg2
+                        )}
+                      >
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", opacity:isSelf ? 0.5 : 1, cursor:isSelf ? "not-allowed" : "pointer" }}>
+                          <div style={{ flex:1, marginRight:"1rem" }}>
+                            <p style={{ fontSize:"0.9rem", fontWeight:"700", margin:"0 0 4px 0", color:myVote===p?C.ind:C.txt2 }}>
+                              {p} {isSelf ? "(You - Can't vote self)" : ""}
+                            </p>
+                            <p style={{ fontSize:"0.85rem", color:C.txt3, margin:0, fontStyle:"italic" }}>
+                              "{answers[p] ?? "(no answer)"}"
+                            </p>
+                          </div>
+                          {!isSelf && (
+                            <div style={{ width:"1.25rem", height:"1.25rem", borderRadius:"9999px", border:`2px solid ${myVote===p?C.ind:C.bdr4}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                              {myVote===p && <div style={{ width:"0.6rem", height:"0.6rem", borderRadius:"9999px", background:C.ind }} />}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button onClick={submitVote} disabled={!myVote} style={{ ...btn(!!myVote), marginTop:"1rem" }}>
+                    Submit Confirmed Vote 🗳️
+                  </button>
                 </div>
               )}
             </div>
@@ -732,30 +893,47 @@
 
         // RESULTS
         if (phase === "results") {
-          const { t: tally, top } = voteResults();
-          const caught = top.includes(impName) && top.length===1;
-          const isTie  = top.length > 1;
-          const emoji  = caught?"🎉":isTie?"🤝":"😈";
-          const title  = caught?"Impostor Caught!":isTie?"It's a Tie — Impostor Escapes!":"Impostor Wins!";
-          const col    = caught?C.grn:isTie?C.ylw:C.red;
+          const { t, max, top } = voteResults();
+          const wasCorrect = top.length === 1 && top[0] === impName;
+
           return (
             <div style={{ ...page, paddingTop:"2rem" }}>
               <div style={{ textAlign:"center", marginBottom:"2rem" }}>
-                <div style={{ fontSize:"4rem", marginBottom:"0.75rem" }}>{emoji}</div>
-                <h1 style={{ fontSize:"1.875rem", fontWeight:"800", color:col, margin:"0 0 0.5rem 0" }}>{title}</h1>
-                <p style={{ color:C.txt3, fontSize:"0.875rem" }}>
-                  {caught?`The crew correctly identified ${impName}!`:isTie?"No consensus — the impostor slipped away!":`${impName} blended in perfectly!`}
+                {wasCorrect ? (
+                  <>
+                    <div style={{ fontSize:"4rem", marginBottom:"0.5rem" }}>🎉</div>
+                    <h1 style={{ fontSize:"2rem", fontWeight:"900", color:C.grn, margin:0 }}>Crew Wins!</h1>
+                    <p style={{ color:C.txt3, fontSize:"0.9rem", marginTop:"0.25rem" }}>You correctly exiled the Impostor!</p>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize:"4rem", marginBottom:"0.5rem" }}>💥</div>
+                    <h1 style={{ fontSize:"2rem", fontWeight:"900", color:C.red, margin:0 }}>Impostor Wins!</h1>
+                    <p style={{ color:C.txt3, fontSize:"0.9rem", marginTop:"0.25rem" }}>
+                      {top.length > 1 ? "The crew caused an unresolved tie!" : `${top[0] || "Nobody"} was falsely accused!`}
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div style={{ ...card(wasCorrect?C.grn:C.red), marginBottom:"1.5rem", textAlign:"center", padding:"1.25rem" }}>
+                <span style={lbl}>The True Impostor</span>
+                <h2 style={{ fontSize:"1.75rem", margin:"0 0 0.25rem 0", color:C.txt }}>{impName}</h2>
+                <p style={{ fontSize:"0.8rem", color:C.txt4, margin:0 }}>
+                  {impName === myName ? "You played well!" : "They blended in beautifully."}
                 </p>
               </div>
 
-              <h3 style={{ fontSize:"0.68rem", color:C.txt4, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"0.75rem" }}>Vote Count</h3>
+              <h3 style={{ fontSize:"0.68rem", color:C.txt4, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"0.75rem" }}>Voting Breakdown</h3>
               <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem", marginBottom:"1.5rem" }}>
-                {Object.entries(tally).sort((a,b)=>b[1]-a[1]).map(([name, count]) => {
-                  const isImp = name===impName;
+                {players.map(name => {
+                  const count = t[name] || 0;
+                  const isImp = name === impName;
                   return (
-                    <div key={name} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0.875rem 1rem", borderRadius:"0.875rem", background:isImp?"#1a0505":C.bg2, border:isImp?`1px solid ${C.red}`:`1px solid ${C.bdr}` }}>
-                      <span style={{ fontWeight:"500" }}>
-                        {name}{name===myName?" (you)":""} {isImp && <span style={{ color:C.red, fontSize:"0.72rem" }}>🕵️ IMPOSTOR</span>}
+                    <div key={name} style={{ ...card(top.includes(name)?C.ind:C.bdr, C.bg3), display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0.75rem 1rem" }}>
+                      <span style={{ fontSize:"0.9rem", color:top.includes(name)?C.txt:C.txt2, display:"flex", alignItems:"center", gap:"0.5rem" }}>
+                        <strong>{name}</strong> {name===myName?"(you)":""}
+                        {isImp && <span style={{ color:C.red, background:"#450a0a", border:"1px solid #dc2626", borderRadius:"4px", padding:"1px 6px", fontSize:"0.72rem" }}>🕵️ IMPOSTOR</span>}
                       </span>
                       <span style={{ fontWeight:"700", color:top.includes(name)&&count>0?C.ylw:C.txt4 }}>
                         {count} vote{count!==1?"s":""}
@@ -765,7 +943,7 @@
                 })}
               </div>
 
-              <h3 style={{ fontSize:"0.68rem", color:C.txt4, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"0.75rem" }}>The Questions Discovered</h3>
+              <h3 style={{ fontSize:"0.68rem", color:C.txt4, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"0.75rem" }}>The Questions</h3>
               <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem", marginBottom:"2rem" }}>
                 <div style={{ background:"#064e3b22", border:"1px solid #059669", borderRadius:"0.875rem", padding:"1rem" }}>
                   <p style={{ fontSize:"0.68rem", color:C.grn, margin:"0 0 6px 0" }}>👥 Crewmate question</p>
@@ -786,11 +964,10 @@
         }
       }
 
-      return <div style={ctr}><p style={{ color:C.txt3 }}>⏳ Connecting…</p></div>;
+      return null;
     }
 
-    const container = document.getElementById('root');
-    const root = ReactDOM.createRoot(container);
+    const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
 </body>
