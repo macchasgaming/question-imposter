@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Impostor Game</title>
+  <title>Impostor Game // HUD Terminal</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -11,38 +11,68 @@
     body {
       margin: 0;
       padding: 0;
-      background-color: #0a0a14;
+      background-color: #03030a;
+      background-image: 
+        linear-gradient(rgba(18, 16, 36, 0.6) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(18, 16, 36, 0.6) 1px, transparent 1px);
+      background-size: 20px 20px;
+      position: relative;
+      overflow-x: hidden;
     }
+    
+    /* Futuristic Matrix Radar Scanline overlay */
+    body::before {
+      content: " ";
+      display: block;
+      position: fixed;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 36, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+      z-index: 99999;
+      opacity: 0.4;
+      pointer-events: none;
+      background-size: 100% 4px, 6px 100%;
+    }
+
     ::-webkit-scrollbar {
-      width: 6px;
+      width: 4px;
     }
     ::-webkit-scrollbar-track {
-      background: #111827;
+      background: #050510;
     }
     ::-webkit-scrollbar-thumb {
-      background: #2d3748;
-      border-radius: 4px;
+      background: #312e81;
+      border-radius: 2px;
     }
 
     /* Dramatic Entry Animation for Answers */
     @keyframes dramaticReveal {
       0% {
         opacity: 0;
-        transform: scale(0.8) translateY(20px);
-        filter: blur(10px);
+        transform: scale(0.9) translateY(30px);
+        filter: blur(15px);
       }
       50% {
-        filter: blur(0px);
+        filter: blur(2px);
       }
       100% {
         opacity: 1;
         transform: scale(1) translateY(0);
-        box-shadow: 0 0 20px rgba(129, 140, 248, 0.2);
+        box-shadow: 0 0 25px rgba(99, 102, 241, 0.35);
       }
     }
 
+    /* System Status Terminal Blinking */
+    @keyframes blink {
+      0%, 100% { opacity: 1; filter: drop-shadow(0 0 8px #6366f1); }
+      50% { opacity: 0.4; filter: drop-shadow(0 0 1px #6366f1); }
+    }
+
     .dramatic-card {
-      animation: dramaticReveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      animation: dramaticReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .status-blink {
+      animation: blink 2s infinite ease-in-out;
     }
   </style>
 </head>
@@ -212,33 +242,33 @@
     let uid = DEFAULT_GROUPS.length + 1;
     const genCode = () => Math.random().toString(36).slice(2, 6).toUpperCase();
 
-    // ── Styles ──────────────────────────────────────────────────────────────────
+    // ── Cyberpunk / Sci-Fi Terminal Color Palette ─────────────────────────────────
     const C = {
-      bg:"#0a0a14", bg2:"#1a1f2e", bg3:"#111827",
-      ind:"#818cf8", ind2:"#4f46e5", ind3:"#1e1b4b",
-      grn:"#34d399", red:"#f87171", ylw:"#fbbf24",
-      txt:"#fff", txt2:"#d1d5db", txt3:"#9ca3af", txt4:"#6b7280",
-      bdr:"#2d3748", bdr2:"#374151",
+      bg:"#050512", bg2:"rgba(13, 13, 33, 0.75)", bg3:"#020208",
+      ind:"#6366f1", ind2:"#4f46e5", ind3:"rgba(30, 27, 75, 0.5)",
+      grn:"#10b981", red:"#ef4444", ylw:"#f59e0b", cyan:"#06b6d4",
+      txt:"#f8fafc", txt2:"#cbd5e1", txt3:"#94a3b8", txt4:"#475569",
+      bdr:"#1e1b4b", bdr2:"#312e81", bdrGlow:"rgba(99, 102, 241, 0.2)"
     };
-    const page = { minHeight:"100vh", background:C.bg, color:C.txt, padding:"1.5rem", maxWidth:"480px", margin:"0 auto", fontFamily:"system-ui,sans-serif", boxSizing:"border-box" };
+    const page = { minHeight:"100vh", background:"transparent", color:C.txt, padding:"2rem 1.5rem", maxWidth:"500px", margin:"0 auto", fontFamily:"ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace", boxSizing:"border-box" };
     const ctr  = { ...page, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", maxWidth:"100vw", textAlign:"center" };
-    const btn  = (on=true, bg=C.ind2) => ({ width:"100%", background:on?bg:C.bdr2, border:"none", borderRadius:"1rem", padding:"1.1rem", color:C.txt, fontWeight:"700", fontSize:"1.05rem", cursor:on?"pointer":"not-allowed", opacity:on?1:0.5, transition:"opacity 0.15s" });
-    const inp  = { width:"100%", background:C.bg2, border:`1px solid ${C.bdr}`, borderRadius:"0.875rem", padding:"0.875rem", color:C.txt, fontSize:"1rem", outline:"none", boxSizing:"border-box" };
-    const card = (bdr=C.bdr, bg=C.bg2) => ({ background:bg, border:`1px solid ${bdr}`, borderRadius:"1rem", padding:"1rem" });
-    const lbl  = { fontSize:"0.7rem", textTransform:"uppercase", letterSpacing:"0.07em", color:C.txt4, marginBottom:"0.4rem", display:"block" };
+    const btn  = (on=true, bg=C.ind2) => ({ width:"100%", background:on?bg:"#0f172a", border:on?`1px solid ${C.cyan}`:`1px solid ${C.txt4}`, borderRadius:"0.35rem", padding:"1.1rem", color:on?C.txt:C.txt3, fontWeight:"700", fontSize:"0.95rem", letterSpacing:"0.08em", textTransform:"uppercase", cursor:on?"pointer":"not-allowed", opacity:on?1:0.4, boxShadow:on?`0 0 12px ${bg}aa`: "none", transition:"all 0.2s ease" });
+    const inp  = { width:"100%", background:"#02020a", border:`1px solid ${C.bdr2}`, borderRadius:"0.35rem", padding:"1rem", color:C.cyan, fontSize:"1rem", fontFamily:"inherit", outline:"none", boxSizing:"border-box", boxShadow:`inset 0 0 8px rgba(0,0,0,0.8)` };
+    const card = (bdr=C.bdr2, bg=C.bg2) => ({ background:bg, border:`1px solid ${bdr}`, borderRadius:"0.5rem", padding:"1.25rem", backdropFilter:"blur(8px)", boxShadow:`0 4px 20px rgba(0,0,0,0.5), 0 0 1px ${bdr}` });
+    const lbl  = { fontSize:"0.75rem", textTransform:"uppercase", letterSpacing:"0.15em", color:C.cyan, marginBottom:"0.5rem", display:"block", fontWeight:"bold" };
 
     function Chip({ name, done, isMe }) {
       return (
-        <span style={{ background:C.bg2, border:`1px solid ${done ? "#059669" : isMe ? C.ind : C.bdr}`, borderRadius:"9999px", padding:"0.35rem 0.8rem", fontSize:"0.8rem", color:done ? C.grn : isMe ? "#c7d2fe" : C.txt4 }}>
-          {done ? "✓ " : "⏳ "}{name}{isMe ? " (you)" : ""}
+        <span style={{ background:"#050515", border:`1px solid ${done ? C.grn : isMe ? C.cyan : C.bdr2}`, borderRadius:"0.25rem", padding:"0.4rem 0.8rem", fontSize:"0.75rem", color:done ? C.grn : isMe ? C.cyan : C.txt3, boxShadow: done ? `0 0 8px ${C.grn}33` : "none" }}>
+          [{done ? "● ONLINE" : "○ SYNCING"}] {name}{isMe ? " (YOU)" : ""}
         </span>
       );
     }
 
     function WaitCard({ host }) {
       return (
-        <div style={{ ...card(), textAlign:"center", padding:"1.25rem" }}>
-          <p style={{ color:C.txt3, margin:0 }}>⏳ Waiting for <strong style={{ color:C.ind }}>{host}</strong>…</p>
+        <div style={{ ...card(C.bdr2), textAlign:"center", padding:"1.5rem" }} className="status-blink">
+          <p style={{ color:C.txt3, margin:0, fontSize:"0.85rem", letterSpacing:"0.1em" }}>⚡ AWAITING HOST SELECTION: <strong style={{ color:C.cyan }}>{host?.toUpperCase()}</strong>…</p>
         </div>
       );
     }
@@ -289,10 +319,8 @@
           const rem = Math.max(0, Math.ceil((gs.timerEnd - now) / 1000));
           setTimeLeft(rem);
 
-          // Force transition immediately to results when countdown hits 0
           if (rem <= 0) {
             clearInterval(interval);
-            // Any client can trigger the transition safely once local time expires
             update({ phase: "results" });
           }
         }, 200);
@@ -341,16 +369,16 @@
         if (!name || code.length !== 4) return;
         try {
           const r = await window.storage.get(`room:${code}`);
-          if (!r || !r.value) { setErr("Room not found."); return; }
+          if (!r || !r.value) { setErr("INVALID SECTOR CODE."); return; }
           const state = JSON.parse(r.value);
-          if (state.phase !== "lobby" && !state.players.includes(name)) { setErr("Game already started."); return; }
+          if (state.phase !== "lobby" && !state.players.includes(name)) { setErr("TRANSMISSION CLOSED."); return; }
           let next = state;
           if (!state.players.includes(name)) {
             next = { ...state, players:[...state.players, name] };
             await window.storage.set(`room:${code}`, JSON.stringify(next));
           }
           setMyName(name); setRoomCode(code); setIsHost(state.host === name); setGs(next); setScr("game");
-        } catch { setErr("Could not connect to room."); }
+        } catch { setErr("GRID CONGESTION. RETRY."); }
       };
 
       const startGame = async () => {
@@ -379,7 +407,6 @@
           const updatedReady = [...s.readyPlayers, myName];
           const threshold = (2 / 3) * s.players.length;
           
-          // Check if 2/3 or more players are ready
           if (updatedReady.length >= threshold) {
             const votes = Object.fromEntries(s.players.map(p => [p, null]));
             return {
@@ -387,7 +414,7 @@
               phase: "voting",
               readyPlayers: updatedReady,
               votes,
-              timerEnd: Date.now() + 15000 // Set exact network epoch time for 15s limit
+              timerEnd: Date.now() + 15000
             };
           }
           return { ...s, readyPlayers: updatedReady };
@@ -435,83 +462,81 @@
       // ── LANDING ───────────────────────────────────────────────────────────────
       if (scr === "landing") return (
         <div style={ctr}>
-          <div style={{ fontSize:"4rem", marginBottom:"0.75rem" }}>🕵️</div>
-          <h1 style={{ fontSize:"2.5rem", fontWeight:"900", color:C.ind, margin:"0 0 0.4rem 0" }}>Impostor</h1>
-          <p style={{ color:C.txt4, fontSize:"0.9rem", marginBottom:"3rem", maxWidth:"260px", lineHeight:"1.5" }}>
-            One player secretly gets a different question from the same group. Can the crew figure out who?
-          </p>
-          <div style={{ width:"100%", maxWidth:"300px", display:"flex", flexDirection:"column", gap:"0.75rem" }}>
-            <button onClick={() => setScr("hosting")} style={btn()}>🏠 Host a Game</button>
-            <button onClick={() => setScr("joining")} style={btn(true,"#059669")}>🔗 Join a Game</button>
+          <div style={{ color:C.cyan, fontSize:"3.5rem", marginBottom:"1rem", filter:`drop-shadow(0 0 10px ${C.cyan})` }}>//🕵️\\</div>
+          <h1 style={{ fontSize:"2.25rem", fontWeight:"900", color:C.txt, margin:"0 0 0.2rem 0", letterSpacing:"0.2em" }}>IMPOSTOR</h1>
+          <p style={{ color:C.ind, fontSize:"0.75rem", letterSpacing:"0.1em", marginBottom:"3rem", textTransform:"uppercase" }}>[ PROTOCOL MAIN TERMINAL ]</p>
+          <div style={{ width:"100%", maxWidth:"320px", display:"flex", flexDirection:"column", gap:"1rem" }}>
+            <button onClick={() => setScr("hosting")} style={btn(true, C.ind2)}>INITIALIZE HOST ROOM</button>
+            <button onClick={() => setScr("joining")} style={btn(true, "rgba(5, 150, 105, 0.25)")}>UPLINK TO ACCESS POINT</button>
           </div>
         </div>
       );
 
       // ── HOST SETUP ────────────────────────────────────────────────────────────
       if (scr === "hosting") return (
-        <div style={{ ...page, paddingTop:"2rem" }}>
-          <button onClick={() => setScr("landing")} style={{ background:"none", border:"none", color:C.txt4, cursor:"pointer", padding:0, marginBottom:"1.25rem", fontSize:"0.9rem" }}>← Back</button>
-          <h1 style={{ fontSize:"1.75rem", fontWeight:"800", color:C.ind, margin:"0 0 1.75rem 0" }}>Host a Game</h1>
+        <div style={{ ...page }}>
+          <button onClick={() => setScr("landing")} style={{ background:"none", border:"none", color:C.ind, cursor:"pointer", padding:0, marginBottom:"1.5rem", fontSize:"0.8rem", fontFamily:"inherit" }}>&lt;&lt; TERMINATE PROCESS</button>
+          <h1 style={{ fontSize:"1.5rem", fontWeight:"800", color:C.txt, margin:"0 0 1.5rem 0", letterSpacing:"0.1em" }}>SETUP COMMAND ROOM</h1>
 
           <div style={{ marginBottom:"1.5rem" }}>
-            <label style={lbl}>Your name</label>
-            <input style={inp} placeholder="Enter your name…" value={hostName} onChange={e => setHostName(e.target.value)} onKeyDown={e => e.key==="Enter" && createRoom()} autoFocus />
+            <label style={lbl}>HOST IDENT CODE</label>
+            <input style={inp} placeholder="INPUT CALLSIGN..." value={hostName} onChange={e => setHostName(e.target.value)} onKeyDown={e => e.key==="Enter" && createRoom()} autoFocus />
           </div>
 
           <div style={{ marginBottom:"2rem" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.75rem" }}>
-              <label style={{ ...lbl, margin:0 }}>Question Groups ({groups.length})</label>
-              <button onClick={() => setShowGF(!showGF)} style={{ background:"none", border:"none", color:C.ind, cursor:"pointer", fontSize:"0.8rem" }}>{showGF ? "Cancel" : "+ Add custom group"}</button>
+              <label style={{ ...lbl, margin:0 }}>DATA GROUPS Pool ({groups.length})</label>
+              <button onClick={() => setShowGF(!showGF)} style={{ background:"none", border:"none", color:C.cyan, cursor:"pointer", fontSize:"0.75rem", fontFamily:"inherit" }}>{showGF ? "[ CLOSE ]" : "[ + APPEND MATRIX ]"}</button>
             </div>
             {showGF && (
-              <div style={{ ...card(), marginBottom:"0.75rem" }}>
-                <label style={{ fontSize:"0.72rem", color:C.grn, display:"block", marginBottom:"0.25rem" }}>📝 Custom Group Questions (One per line)</label>
-                <textarea style={{ ...inp, resize:"none", fontSize:"0.875rem", marginBottom:"0.75rem" }} rows={4} placeholder="Question 1&#10;Question 2&#10;Question 3..." value={customQuestions} onChange={e => setCustomQuestions(e.target.value)} />
+              <div style={{ ...card(C.cyan), marginBottom:"1rem" }}>
+                <label style={{ fontSize:"0.7rem", color:C.grn, display:"block", marginBottom:"0.5rem" }}>Inject Group Questions (One statement per line)</label>
+                <textarea style={{ ...inp, resize:"none", fontSize:"0.85rem", marginBottom:"0.75rem" }} rows={4} placeholder="Query Alpha...&#10;Query Beta..." value={customQuestions} onChange={e => setCustomQuestions(e.target.value)} />
                 <button onClick={() => {
                   const splitLines = customQuestions.split("\n").map(l => l.trim()).filter(Boolean);
-                  if (splitLines.length < 2) { alert("Please provide at least 2 questions for a group!"); return; }
+                  if (splitLines.length < 2) { alert("Matrix requires minimum 2 entry sets!"); return; }
                   setGroups(g => [...g, { id:uid++, questions:splitLines }]);
                   setCustomQuestions(""); setShowGF(false);
-                }} style={{ ...btn(customQuestions.trim()), padding:"0.7rem", fontSize:"0.9rem" }}>Save Group</button>
+                }} style={{ ...btn(customQuestions.trim(), C.grn), padding:"0.6rem", fontSize:"0.8rem" }}>Compile Dataset</button>
               </div>
             )}
-            <div style={{ maxHeight:"14rem", overflowY:"auto", display:"flex", flexDirection:"column", gap:"0.5rem" }}>
+            <div style={{ maxHeight:"12rem", overflowY:"auto", display:"flex", flexDirection:"column", gap:"0.5rem" }}>
               {groups.map((g, i) => (
-                <div key={g.id} style={card()}>
+                <div key={g.id} style={card(C.bdr)}>
                   <div style={{ display:"flex", gap:"0.5rem" }}>
                     <div style={{ flex:1 }}>
-                      <p style={{ fontSize:"0.75rem", color:C.ind, margin:"0 0 4px 0", fontWeight:"700" }}>📦 Group #{i+1} ({g.questions.length} options)</p>
+                      <p style={{ fontSize:"0.7rem", color:C.cyan, margin:"0 0 4px 0", fontWeight:"700" }}>STATION POOL #{i+1} [{g.questions.length} DATASETS]</p>
                       {g.questions.map((q, qidx) => (
-                        <p key={qidx} style={{ fontSize:"0.68rem", color:C.txt3, margin:"0 0 2px 0", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>• {q}</p>
+                        <p key={qidx} style={{ fontSize:"0.65rem", color:C.txt3, margin:"0 0 2px 0", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>&gt; {q}</p>
                       ))}
                     </div>
-                    <button onClick={() => setGroups(gs => gs.filter(x => x.id!==g.id))} style={{ background:"none", border:"none", color:C.txt4, cursor:"pointer", fontSize:"1.2rem", lineHeight:1 }}>×</button>
+                    <button onClick={() => setGroups(gs => gs.filter(x => x.id!==g.id))} style={{ background:"none", border:"none", color:C.red, cursor:"pointer", fontSize:"1.1rem" }}>×</button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          <button onClick={createRoom} disabled={!hostName.trim()||groups.length===0} style={btn(!!hostName.trim()&&groups.length>0)}>Create Room 🏠</button>
+          <button onClick={createRoom} disabled={!hostName.trim()||groups.length===0} style={btn(!!hostName.trim()&&groups.length>0, C.ind2)}>DEPLOY INSTANCE 🪐</button>
         </div>
       );
 
       // ── JOIN ──────────────────────────────────────────────────────────────────
       if (scr === "joining") return (
         <div style={ctr}>
-          <button onClick={() => { setScr("landing"); setErr(""); }} style={{ position:"absolute", top:"1.5rem", left:"1.5rem", background:"none", border:"none", color:C.txt4, cursor:"pointer" }}>← Back</button>
-          <div style={{ fontSize:"3rem", marginBottom:"0.75rem" }}>🔗</div>
-          <h1 style={{ fontSize:"1.75rem", fontWeight:"800", color:C.ind, margin:"0 0 2rem 0" }}>Join a Game</h1>
-          <div style={{ width:"100%", maxWidth:"300px" }}>
+          <button onClick={() => { setScr("landing"); setErr(""); }} style={{ position:"absolute", top:"2rem", left:"1.5rem", background:"none", border:"none", color:C.ind, cursor:"pointer", fontFamily:"inherit" }}>&lt;&lt; BACK</button>
+          <div style={{ color:C.cyan, fontSize:"3rem", marginBottom:"1rem" }}>📡</div>
+          <h1 style={{ fontSize:"1.5rem", fontWeight:"800", color:C.txt, margin:"0 0 2rem 0", letterSpacing:"0.1em" }}>TUNING BEACON CHANNEL</h1>
+          <div style={{ width:"100%", maxWidth:"320px" }}>
             <div style={{ marginBottom:"1rem" }}>
-              <label style={lbl}>Your name</label>
-              <input style={inp} placeholder="Enter your name…" value={joinName} onChange={e => setJoinName(e.target.value)} autoFocus />
+              <label style={lbl}>USER SIGNATURE</label>
+              <input style={inp} placeholder="CALLSIGN..." value={joinName} onChange={e => setJoinName(e.target.value)} autoFocus />
             </div>
             <div style={{ marginBottom:"1.5rem" }}>
-              <label style={lbl}>Room code</label>
-              <input style={{ ...inp, textTransform:"uppercase", fontSize:"2rem", textAlign:"center", letterSpacing:"0.3em", fontWeight:"800" }} placeholder="XXXX" maxLength={4} value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} onKeyDown={e => e.key==="Enter" && joinRoom()} />
+              <label style={lbl}>NETWORK ACCESS PIN</label>
+              <input style={{ ...inp, textTransform:"uppercase", fontSize:"1.75rem", textAlign:"center", letterSpacing:"0.2em", fontWeight:"800", color:C.ylw }} placeholder="XXXX" maxLength={4} value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} onKeyDown={e => e.key==="Enter" && joinRoom()} />
             </div>
-            {err && <p style={{ color:C.red, fontSize:"0.875rem", marginBottom:"1rem" }}>⚠ {err}</p>}
-            <button onClick={joinRoom} disabled={!joinName.trim()||joinCode.length!==4} style={btn(!!joinName.trim()&&joinCode.length===4,"#059669")}>Join Game →</button>
+            {err && <p style={{ color:C.red, fontSize:"0.75rem", marginBottom:"1rem", letterSpacing:"0.05em" }}>⚠️ CRITICAL ERROR: {err}</p>}
+            <button onClick={joinRoom} disabled={!joinName.trim()||joinCode.length!==4} style={btn(!!joinName.trim()&&joinCode.length===4, C.grn)}>ESTABLISH UPLINK →</button>
           </div>
         </div>
       );
@@ -531,54 +556,47 @@
             setCustomQuestions(""); setShowGF(false);
           };
           return (
-            <div style={{ ...page, paddingTop:"2rem" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"2rem" }}>
+            <div style={{ ...page }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"2.5rem", borderBottom:`2px dashed ${C.bdr2}`, paddingBottom:"1.5rem" }}>
                 <div>
-                  <p style={{ color:C.txt4, fontSize:"0.8rem", margin:"0 0 0.2rem 0" }}>Room code</p>
-                  <h2 style={{ color:C.ind, fontSize:"2.75rem", fontWeight:"900", letterSpacing:"0.25em", margin:0 }}>{roomCode}</h2>
-                  <p style={{ color:"#374151", fontSize:"0.72rem", marginTop:"0.2rem" }}>Share this with your friends</p>
+                  <p style={{ color:C.ind, fontSize:"0.7rem", margin:"0 0 0.2rem 0", letterSpacing:"0.1em" }}>NETWORK FREQUENCY</p>
+                  <h2 style={{ color:C.cyan, fontSize:"2.5rem", fontWeight:"900", letterSpacing:"0.15em", margin:0, filter:`drop-shadow(0 0 8px ${C.cyan}44)` }}>{roomCode}</h2>
                 </div>
-                <span style={{ fontSize:"0.72rem", color:iAmHost?C.ylw:C.txt4, background:C.bg2, borderRadius:"9999px", padding:"0.3rem 0.75rem", border:`1px solid ${iAmHost?"#92400e":C.bdr}` }}>
-                  {iAmHost ? "👑 Host" : "👤 Player"}
+                <span style={{ fontSize:"0.65rem", color:iAmHost?C.ylw:C.cyan, background:"#05051c", border:`1px solid ${iAmHost?C.ylw:C.cyan}`, borderRadius:"2px", padding:"0.3rem 0.6rem", letterSpacing:"0.1em" }}>
+                  {iAmHost ? "[👑 MAINFRAME]" : "[👤 CLIENT]"}
                 </span>
               </div>
 
-              <div style={{ marginBottom:"1.5rem" }}>
-                <label style={lbl}>Players ({players.length})</label>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem" }}>
+              <div style={{ marginBottom:"2rem" }}>
+                <label style={lbl}>MANIFEST SYNCED OPERATIVES ({players.length})</label>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem", background:"rgba(0,0,0,0.4)", padding:"0.75rem", borderRadius:"0.25rem", border:`1px dashed ${C.bdr}` }}>
                   {players.map(p => (
-                    <span key={p} style={{ background:C.bg2, border:`1px solid ${p===myName?C.ind:C.bdr}`, borderRadius:"9999px", padding:"0.35rem 0.85rem", fontSize:"0.85rem", color:p===myName?"#c7d2fe":C.txt2 }}>
-                      {p===host?"👑 ":""}{p}{p===myName?" (you)":""}
+                    <span key={p} style={{ background:"#02020a", border:`1px solid ${p===myName?C.cyan:C.bdr2}`, borderRadius:"2px", padding:"0.4rem 0.75rem", fontSize:"0.8rem", color:p===myName?C.cyan:C.txt2 }}>
+                      {p===host?"👑 ":""}{p.toUpperCase()}{p===myName?" (YOU)":""}
                     </span>
                   ))}
                 </div>
-                {players.length < 3 && <p style={{ color:C.ylw, fontSize:"0.75rem", marginTop:"0.5rem" }}>⚠ Need at least 3 players to start</p>}
+                {players.length < 3 && <p style={{ color:C.ylw, fontSize:"0.7rem", marginTop:"0.5rem", letterSpacing:"0.05em" }}>⚠️ NODE INSIGNIFICANT: Minimum 3 operators required.</p>}
               </div>
 
               {iAmHost && (
                 <div style={{ marginBottom:"2rem" }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.75rem" }}>
-                    <label style={{ ...lbl, margin:0 }}>Groups ({gs.qGroups.length} Pools)</label>
-                    <button onClick={() => setShowGF(!showGF)} style={{ background:"none", border:"none", color:C.ind, cursor:"pointer", fontSize:"0.8rem" }}>{showGF?"Cancel":"+ Add custom group"}</button>
+                    <label style={{ ...lbl, margin:0 }}>SECTOR MATRIX POOLS ({gs.qGroups.length})</label>
+                    <button onClick={() => setShowGF(!showGF)} style={{ background:"none", border:"none", color:C.cyan, cursor:"pointer", fontSize:"0.75rem", fontFamily:"inherit" }}>{showGF?"[HIDE]":"[+ DATA]"}</button>
                   </div>
                   {showGF && (
-                    <div style={{ ...card(), marginBottom:"0.75rem" }}>
-                      <label style={{ fontSize:"0.72rem", color:C.grn, display:"block", marginBottom:"0.25rem" }}>📝 Group Questions (One per line)</label>
-                      <textarea style={{ ...inp, resize:"none", fontSize:"0.875rem", marginBottom:"0.75rem" }} rows={3} value={customQuestions} onChange={e => setCustomQuestions(e.target.value)} placeholder="Question 1&#10;Question 2..." />
-                      <button onClick={addCustomGroup} style={{ ...btn(customQuestions.trim()), padding:"0.7rem", fontSize:"0.9rem" }}>Save Group</button>
+                    <div style={{ ...card(C.cyan), marginBottom:"0.75rem" }}>
+                      <textarea style={{ ...inp, resize:"none", fontSize:"0.85rem", marginBottom:"0.5rem" }} rows={3} value={customQuestions} onChange={e => setCustomQuestions(e.target.value)} placeholder="Entry 1...&#10;Entry 2..." />
+                      <button onClick={addCustomGroup} style={{ ...btn(customQuestions.trim(), C.cyan), padding:"0.5rem", fontSize:"0.75rem" }}>Commit Matrix</button>
                     </div>
                   )}
-                  <div style={{ maxHeight:"10rem", overflowY:"auto", display:"flex", flexDirection:"column", gap:"0.5rem" }}>
+                  <div style={{ maxHeight:"8rem", overflowY:"auto", display:"flex", flexDirection:"column", gap:"0.4rem" }}>
                     {gs.qGroups.map((g, idx) => (
-                      <div key={g.id} style={card()}>
-                        <div style={{ display:"flex", gap:"0.5rem" }}>
-                          <div style={{ flex:1 }}>
-                            <p style={{ fontSize:"0.68rem", color:C.ind, margin:"0 0 2px 0", fontWeight:"700" }}>📦 Group #{idx+1}</p>
-                            {g.questions.map((q, qidx) => (
-                              <p key={qidx} style={{ fontSize:"0.65rem", color:C.txt3, margin:0 }}>• {q}</p>
-                            ))}
-                          </div>
-                          <button onClick={() => update(s => ({ ...s, qGroups:s.qGroups.filter(x => x.id!==g.id) }))} style={{ background:"none", border:"none", color:C.txt4, cursor:"pointer", fontSize:"1.2rem", lineHeight:1 }}>×</button>
+                      <div key={g.id} style={card(C.bdr, "rgba(0,0,0,0.3)")} padding="0.5rem">
+                        <div style={{ display:"flex", justifyContent:"space-between" }}>
+                          <span style={{ fontSize:"0.65rem", color:C.ind }}>MATRIX POOL #{idx+1}</span>
+                          <button onClick={() => update(s => ({ ...s, qGroups:s.qGroups.filter(x => x.id!==g.id) }))} style={{ background:"none", border:"none", color:C.red, cursor:"pointer" }}>×</button>
                         </div>
                       </div>
                     ))}
@@ -587,7 +605,7 @@
               )}
 
               {iAmHost
-                ? <button onClick={startGame} disabled={players.length<3||gs.qGroups.length===0} style={btn(players.length>=3&&gs.qGroups.length>0)}>Start Game 🚀</button>
+                ? <button onClick={startGame} disabled={players.length<3||gs.qGroups.length===0} style={btn(players.length>=3&&gs.qGroups.length>0, C.cyan)}>ENGAGE SIMULATION 🚀</button>
                 : <WaitCard host={host} />
               }
             </div>
@@ -598,30 +616,29 @@
         if (phase === "answering") {
           if (submitted) return (
             <div style={ctr}>
-              <div style={{ fontSize:"3rem", marginBottom:"0.75rem" }}>✅</div>
-              <h2 style={{ color:C.grn, fontSize:"1.5rem", fontWeight:"700", margin:"0 0 0.5rem 0" }}>Answer submitted!</h2>
-              <p style={{ color:C.txt3, marginBottom:"2rem" }}>Waiting for others… ({answeredN}/{players.length})</p>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem", justifyContent:"center", maxWidth:"320px" }}>
+              <div style={{ color:C.grn, fontSize:"3.5rem", marginBottom:"1rem", filter:`drop-shadow(0 0 10px ${C.grn})` }}>✓ DATA BUFFERED</div>
+              <p style={{ color:C.txt3, fontSize:"0.85rem", marginBottom:"2rem", letterSpacing:"0.05em" }}>SYNCHRONIZING SECURE ENTRIES: ({answeredN} / {players.length})</p>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem", justifyContent:"center", maxWidth:"360px" }}>
                 {players.map(p => <Chip key={p} name={p} done={answers[p]!=null} isMe={p===myName} />)}
               </div>
               {iAmHost && allAnswered && (
-                <button onClick={() => advanceTo("reveal")} style={{ ...btn(), width:"auto", padding:"0.9rem 2rem", marginTop:"2rem", fontSize:"1rem" }}>
-                  Reveal Answers 📋
+                <button onClick={() => advanceTo("reveal")} style={{ ...btn(true, C.cyan), marginTop:"2.5rem" }}>
+                  DECRYPT & SHOW ENTRY LOGS 📋
                 </button>
               )}
-              {!iAmHost && allAnswered && <p style={{ color:C.txt4, fontSize:"0.8rem", marginTop:"1.5rem" }}>All answers in! Waiting for {host} to reveal…</p>}
+              {!iAmHost && allAnswered && <p style={{ color:C.ind, fontSize:"0.75rem", marginTop:"2rem" }} className="status-blink">SYSTEM READY. AWAITING DECRYPTION STROKE FROM MAINFRAME...</p>}
             </div>
           );
           return (
-            <div style={{ ...page, paddingTop:"2rem" }}>
-              <p style={{ color:C.txt4, fontSize:"0.875rem", margin:"0 0 0.2rem 0" }}>Question for</p>
-              <h2 style={{ color:C.ind, fontSize:"1.75rem", fontWeight:"800", margin:"0 0 2rem 0" }}>{myName}</h2>
-              <div style={{ background:"#1a1a2e", border:`1px solid ${C.ind3}`, borderRadius:"1.25rem", padding:"1.5rem", marginBottom:"1.5rem" }}>
-                <p style={{ fontSize:"1.1rem", lineHeight:"1.65", color:"#e0e7ff", margin:0 }}>{myQ}</p>
+            <div style={{ ...page }}>
+              <p style={{ color:C.cyan, fontSize:"0.7rem", margin:"0 0 0.2rem 0", letterSpacing:"0.1em" }}>SECURE DATA FEED FOR:</p>
+              <h2 style={{ color:C.txt, fontSize:"1.5rem", fontWeight:"800", margin:"0 0 2rem 0", textTransform:"uppercase" }}>&gt; OPERATIVE {myName}</h2>
+              <div style={{ background:"rgba(6, 182, 212, 0.05)", border:`1px dashed ${C.cyan}`, borderRadius:"0.25rem", padding:"1.5rem", marginBottom:"2rem", boxShadow:`inset 0 0 15px rgba(6,182,212,0.1)` }}>
+                <p style={{ fontSize:"1rem", lineHeight:"1.6", color:C.txt2, margin:0 }}>{myQ}</p>
               </div>
-              <label style={lbl}>Your answer</label>
-              <textarea style={{ ...inp, resize:"none", marginBottom:"1rem" }} rows={4} placeholder="Type your answer…" value={myAns} onChange={e => setMyAns(e.target.value)} autoFocus />
-              <button onClick={submitAnswer} disabled={!myAns.trim()} style={btn(!!myAns.trim())}>Submit Answer ✓</button>
+              <label style={lbl}>COMPILE RESPONSE STREAM</label>
+              <textarea style={{ ...inp, resize:"none", marginBottom:"1.5rem" }} rows={4} placeholder="Type transmitting message here..." value={myAns} onChange={e => setMyAns(e.target.value)} autoFocus />
+              <button onClick={submitAnswer} disabled={!myAns.trim()} style={btn(!!myAns.trim(), C.cyan)}>TRANSMIT LOG ENTRY ✓</button>
             </div>
           );
         }
@@ -631,62 +648,59 @@
           const hasMoreToReveal = revealIndex < players.length;
 
           return (
-            <div style={{ ...page, paddingTop:"2rem" }}>
-              <div style={{ textAlign:"center", marginBottom:"1.75rem" }}>
-                <div style={{ fontSize:"2rem", marginBottom:"0.5rem" }}>👀</div>
-                <h1 style={{ fontSize:"1.75rem", fontWeight:"800", margin:0 }}>Revealing Answers</h1>
-                <p style={{ color:C.txt4, fontSize:"0.875rem", marginTop:"0.25rem" }}>
-                  {hasMoreToReveal ? `Showing ${revealIndex} of ${players.length} responses...` : "All answers revealed! Discuss!"}
+            <div style={{ ...page }}>
+              <div style={{ textAlign:"center", marginBottom:"2rem" }}>
+                <div style={{ color:C.cyan, fontSize:"2rem", marginBottom:"0.25rem" }}>[ LOG DECRYPTION HUD ]</div>
+                <p style={{ color:C.txt4, fontSize:"0.75rem", margin:0, letterSpacing:"0.05em" }}>
+                  {hasMoreToReveal ? `PARTIAL STREAM INDEX: ${revealIndex} / ${players.length}` : "ALL TRANSMISSIONS REVEALED. ANALYZE GRID."}
                 </p>
               </div>
 
-              <div style={{ background:"#064e3b22", border:"1px solid #059669", borderRadius:"1rem", padding:"1rem", marginBottom:"1.5rem" }}>
-                <p style={{ fontSize:"0.68rem", color:C.grn, margin:"0 0 6px 0", textTransform:"uppercase", letterSpacing:"0.07em" }}>👥 The Crewmate Question</p>
-                <p style={{ color:C.txt, fontWeight:"500", margin:0 }}>{crewQ}</p>
+              <div style={{ background:"rgba(16, 185, 129, 0.05)", border:`1px solid ${C.grn}`, borderRadius:"0.25rem", padding:"1rem", marginBottom:"1.5rem", boxShadow:`0 0 8px ${C.grn}22` }}>
+                <p style={{ fontSize:"0.65rem", color:C.grn, margin:"0 0 4px 0", letterSpacing:"0.1em" }}>// REFERENCE CREW INTERCEPT MATRIX //</p>
+                <p style={{ color:C.txt, fontSize:"0.9rem", margin:0 }}>{crewQ}</p>
               </div>
 
-              <div style={{ display:"flex", flexDirection:"column", gap:"0.75rem", marginBottom:"2rem" }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:"1rem", marginBottom:"2rem" }}>
                 {players.slice(0, revealIndex).map((p, idx) => (
                   <div 
                     key={p} 
                     className="dramatic-card"
-                    style={card(C.ind, "#131826")}
+                    style={card(C.cyan, "rgba(5, 5, 20, 0.85)")}
                   >
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
-                      <p style={{ fontSize:"0.85rem", fontWeight:"700", color:C.ind, margin:0 }}>{p}{p===myName?" (you)":""}</p>
-                      <span style={{ fontSize:"0.65rem", color:C.txt4, background:C.bg3, padding:"2px 8px", borderRadius:"4px" }}>
-                        Response #{idx + 1}
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px", borderBottom:`1px solid ${C.bdr2}`, paddingBottom:"4px" }}>
+                      <p style={{ fontSize:"0.8rem", fontWeight:"700", color:C.cyan, margin:0 }}>STATION ID: {p.toUpperCase()}{p===myName?" (YOU)":""}</p>
+                      <span style={{ fontSize:"0.6rem", color:C.ind, background:"#000", padding:"2px 6px" }}>
+                        BATCH #{idx + 1}
                       </span>
                     </div>
-                    <p style={{ color:C.txt, margin:0, fontSize:"1.05rem", lineHeight:"1.5" }}>{answers[p] ?? "(no answer)"}</p>
+                    <p style={{ color:C.txt2, margin:0, fontSize:"0.95rem", lineHeight:"1.5", fontStyle:"italic" }}>"{answers[p] ?? "NO CAPTURED STREAM"}"</p>
                   </div>
                 ))}
 
                 {revealIndex === 0 && (
                   <div style={{ ...card(), textAlign:"center", padding:"2rem", borderStyle:"dashed", borderColor:C.bdr2 }}>
-                    <p style={{ color:C.txt4, margin:0, fontSize:"0.95rem" }}>🎭 Waiting for host to reveal cards...</p>
+                    <p style={{ color:C.ind, margin:0, fontSize:"0.8rem" }} className="status-blink">&gt;&gt; LOG QUEUE EMPTY. MAINFRAME ACCESS COMMAND REQ &lt;&lt;</p>
                   </div>
                 )}
               </div>
 
-              {/* Host Control: Step through slideshow entries */}
               {iAmHost && hasMoreToReveal && (
-                <button onClick={advanceReveal} style={{ ...btn(true, C.ind2), marginBottom: "1rem" }}>
-                  Reveal Next Answer ✨ ({revealIndex + 1}/{players.length})
+                <button onClick={advanceReveal} style={{ ...btn(true, C.ind2), marginBottom: "1.5rem" }}>
+                  DECRYPT LOG FRAME ({revealIndex + 1} / {players.length}) ✨
                 </button>
               )}
 
-              {/* Global democratic choice: Anyone can initiate voting when 2/3 agree */}
-              <div style={{ ...card(iAmReady ? "#059669" : C.bdr), textAlign:"center" }}>
-                <p style={{ fontSize:"0.85rem", color:C.txt2, marginTop:0, marginBottom:"0.75rem" }}>
-                  🗳️ Ready to vote? ({readyCount}/{neededCount} players agreed)
+              <div style={{ ...card(iAmReady ? C.grn : C.bdr2), textAlign:"center", background:"rgba(0,0,0,0.5)" }}>
+                <p style={{ fontSize:"0.75rem", color:C.txt2, marginTop:0, marginBottom:"0.75rem", letterSpacing:"0.05em" }}>
+                  FORCE IMMEDIATE DEBATE CLOSURE? ({readyCount} / {neededCount} DECLARED READY)
                 </p>
                 <button 
                   onClick={handleReadyToVote} 
                   disabled={iAmReady}
-                  style={btn(!iAmReady, iAmReady ? C.bdr2 : "#059669")}
+                  style={btn(!iAmReady, iAmReady ? "#02020a" : "rgba(16, 185, 129, 0.25)")}
                 >
-                  {iAmReady ? "Waiting for 2/3 threshold..." : "I'm Ready to Vote! 🔒"}
+                  {iAmReady ? "[ LOCK ACKNOWLEDGED // SYNCING SYSTEM ]" : "LOCK MY VOTING TERMINAL 🔒"}
                 </button>
               </div>
             </div>
@@ -696,34 +710,34 @@
         // VOTING PHASE WITH 15S AUTOMATED COUNTDOWN
         if (phase === "voting") {
           return (
-            <div style={{ ...page, paddingTop:"2rem" }}>
+            <div style={{ ...page }}>
               {/* Dynamic 15s Countdown Header */}
-              <div style={{ textAlign:"center", marginBottom:"1.5rem", background:"#450a0a44", border:`1px solid ${C.red}`, padding:"0.75rem", borderRadius:"1rem" }}>
-                <p style={{ color:C.red, fontSize:"0.75rem", textTransform:"uppercase", letterSpacing:"0.1em", margin:"0 0 2px 0", fontWeight:"700" }}>🚨 Voting finishes automatically in:</p>
-                <h2 style={{ color:C.txt, fontSize:"2.25rem", fontWeight:"900", margin:0 }}>{timeLeft}s</h2>
+              <div style={{ textAlign:"center", marginBottom:"2rem", background:"rgba(239, 68, 68, 0.05)", border:`1px solid ${C.red}`, padding:"1rem", borderRadius:"0.25rem", boxShadow:`0 0 15px rgba(239, 68, 68, 0.2)` }}>
+                <p style={{ color:C.red, fontSize:"0.7rem", letterSpacing:"0.15em", margin:"0 0 4px 0", fontWeight:"700" }}>⚠️ CRITICAL TIME VECTOR: FORCE SHOW RESULTS IN:</p>
+                <h2 style={{ color:C.txt, fontSize:"2.5rem", fontWeight:"900", margin:0, fontFamily:"monospace" }}>{timeLeft}s</h2>
               </div>
 
               {voted ? (
                 <div style={{ textAlign:"center", padding:"2rem 0" }}>
-                  <div style={{ fontSize:"3rem", marginBottom:"0.75rem" }}>🔒</div>
-                  <h2 style={{ color:C.ind, fontSize:"1.5rem", fontWeight:"700", margin:"0 0 0.5rem 0" }}>Vote locked in!</h2>
-                  <p style={{ color:C.txt3, marginBottom:"2rem" }}>Players responded: ({votedN}/{players.length})</p>
+                  <div style={{ color:C.cyan, fontSize:"3.5rem", marginBottom:"1rem" }}>🔒 METRIC LOCKED</div>
+                  <h2 style={{ color:C.txt, fontSize:"1.25rem", fontWeight:"700", margin:"0 0 0.5rem 0", letterSpacing:"0.05em" }}>VOTE DISPATCH SUCCESSFUL</h2>
+                  <p style={{ color:C.ind, fontSize:"0.75rem", marginBottom:"2rem" }}>GRID RESPONSE METRICS: ({votedN} / {players.length})</p>
                   <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem", justifyContent:"center", maxWidth:"320px" }}>
                     {players.map(p => <Chip key={p} name={p} done={votes[p]!=null} isMe={p===myName} />)}
                   </div>
                 </div>
               ) : (
                 <div>
-                  <h2 style={{ color:C.ind, fontSize:"1.75rem", fontWeight:"800", margin:"0 0 0.25rem 0" }}>Your Vote</h2>
-                  <p style={{ color:C.txt4, fontSize:"0.875rem", marginBottom:"1.5rem" }}>Who do you think got a different question?</p>
-                  <div style={{ display:"flex", flexDirection:"column", gap:"0.625rem", marginBottom:"2rem" }}>
+                  <h2 style={{ color:C.cyan, fontSize:"1.25rem", fontWeight:"800", margin:"0 0 0.25rem 0", letterSpacing:"0.1em" }}>PURGE ANOMALOUS OPERATIVE</h2>
+                  <p style={{ color:C.txt3, fontSize:"0.8rem", marginBottom:"2rem" }}>Select signature carrying conflicting packet inputs:</p>
+                  <div style={{ display:"flex", flexDirection:"column", gap:"0.75rem", marginBottom:"2rem" }}>
                     {players.filter(p => p!==myName).map(p => (
-                      <button key={p} onClick={() => setMyVote(p)} style={{ textAlign:"left", padding:"1rem", borderRadius:"1rem", border:`2px solid ${myVote===p?C.ind:C.bdr}`, background:myVote===p?C.ind3:C.bg2, color:C.txt, fontSize:"1rem", fontWeight:"500", cursor:"pointer" }}>
-                        {myVote===p?"✓ ":""}{p}
+                      <button key={p} onClick={() => setMyVote(p)} style={{ textAlign:"left", padding:"1rem", borderRadius:"0.25rem", border:`1px solid ${myVote===p?C.cyan:C.bdr2}`, background:myVote===p?"rgba(6, 182, 212, 0.15)":"#02020a", color:myVote===p?C.cyan:C.txt, fontSize:"0.95rem", fontFamily:"inherit", cursor:"pointer", transition:"all 0.15s" }}>
+                        {myVote===p?"[X] ":"[ ] "}{p.toUpperCase()}
                       </button>
                     ))}
                   </div>
-                  <button onClick={submitVote} disabled={!myVote} style={btn(!!myVote)}>Lock In Vote 🔒</button>
+                  <button onClick={submitVote} disabled={!myVote} style={btn(!!myVote, C.cyan)}>TRANSMIT SELECTION DISCHARGE 🔒</button>
                 </div>
               )}
             </div>
@@ -735,50 +749,49 @@
           const { t: tally, top } = voteResults();
           const caught = top.includes(impName) && top.length===1;
           const isTie  = top.length > 1;
-          const emoji  = caught?"🎉":isTie?"🤝":"😈";
-          const title  = caught?"Impostor Caught!":isTie?"It's a Tie — Impostor Escapes!":"Impostor Wins!";
+          const title  = caught?"ANOMALY COMPROMISED":isTie?"INDETERMINATE GRID TIE":"ANOMALY PURGE FAILURE";
           const col    = caught?C.grn:isTie?C.ylw:C.red;
+          const shadow = caught?C.grn:isTie?C.ylw:C.red;
           return (
-            <div style={{ ...page, paddingTop:"2rem" }}>
-              <div style={{ textAlign:"center", marginBottom:"2rem" }}>
-                <div style={{ fontSize:"4rem", marginBottom:"0.75rem" }}>{emoji}</div>
-                <h1 style={{ fontSize:"1.875rem", fontWeight:"800", color:col, margin:"0 0 0.5rem 0" }}>{title}</h1>
-                <p style={{ color:C.txt3, fontSize:"0.875rem" }}>
-                  {caught?`The crew correctly identified ${impName}!`:isTie?"No consensus — the impostor slipped away!":`${impName} blended in perfectly!`}
+            <div style={{ ...page }}>
+              <div style={{ textAlign:"center", marginBottom:"2.5rem", borderBottom:`2px dashed ${col}`, paddingBottom:"1.5rem" }}>
+                <h1 style={{ fontSize:"1.5rem", fontWeight:"900", color:col, margin:"0 0 0.5rem 0", letterSpacing:"0.15em", filter:`drop-shadow(0 0 10px ${shadow})` }}>// {title} //</h1>
+                <p style={{ color:C.txt2, fontSize:"0.8rem", marginTop:"0.5rem" }}>
+                  {caught?`Operative [${impName.toUpperCase()}] validated as the rogue element.`:isTie?"Tie metrics allowed rogue element to mask trace channels!":`Rogue operative [${impName.toUpperCase()}] cleared detection filters!`}
                 </p>
               </div>
 
-              <h3 style={{ fontSize:"0.68rem", color:C.txt4, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"0.75rem" }}>Vote Count</h3>
-              <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem", marginBottom:"1.5rem" }}>
+              <h3 style={{ fontSize:"0.7rem", color:C.cyan, textTransform:"uppercase", letterSpacing:"0.15em", marginBottom:"0.75rem" }}>GRID PURGE MATRIX TALLY</h3>
+              <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem", marginBottom:"2rem" }}>
                 {Object.entries(tally).sort((a,b)=>b[1]-a[1]).map(([name, count]) => {
                   const isImp = name===impName;
                   return (
-                    <div key={name} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0.875rem 1rem", borderRadius:"0.875rem", background:isImp?"#1a0505":C.bg2, border:isImp?`1px solid ${C.red}`:`1px solid ${C.bdr}` }}>
-                      <span style={{ fontWeight:"500" }}>
-                        {name}{name===myName?" (you)":""} {isImp && <span style={{ color:C.red, fontSize:"0.72rem" }}>🕵️ IMPOSTOR</span>}
+                    <div key={name} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0.8rem 1rem", borderRadius:"0.25rem", background:isImp?"rgba(239, 68, 68, 0.05)":"#02020a", border:isImp?`1px solid ${C.red}`:`1px solid ${C.bdr2}` }}>
+                      <span style={{ fontWeight:"500", fontSize:"0.85rem" }}>
+                        {name.toUpperCase()}{name===myName?" (YOU)":""} {isImp && <span style={{ color:C.red, fontSize:"0.65rem", marginLeft:"8px", border:`1px solid ${C.red}`, padding:"0 4px" }}>ROGUE UNIT</span>}
                       </span>
-                      <span style={{ fontWeight:"700", color:top.includes(name)&&count>0?C.ylw:C.txt4 }}>
-                        {count} vote{count!==1?"s":""}
+                      <span style={{ fontWeight:"700", color:top.includes(name)&&count>0?C.ylw:C.txt4, fontSize:"0.85rem" }}>
+                        {count} CORRUPT_SIGS
                       </span>
                     </div>
                   );
                 })}
               </div>
 
-              <h3 style={{ fontSize:"0.68rem", color:C.txt4, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"0.75rem" }}>The Questions Discovered</h3>
-              <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem", marginBottom:"2rem" }}>
-                <div style={{ background:"#064e3b22", border:"1px solid #059669", borderRadius:"0.875rem", padding:"1rem" }}>
-                  <p style={{ fontSize:"0.68rem", color:C.grn, margin:"0 0 6px 0" }}>👥 Crewmate question</p>
-                  <p style={{ color:C.txt, margin:0 }}>{crewQ}</p>
+              <h3 style={{ fontSize:"0.7rem", color:C.cyan, textTransform:"uppercase", letterSpacing:"0.15em", marginBottom:"0.75rem" }}>INTERCEPTED PACKET CONTENTS</h3>
+              <div style={{ display:"flex", flexDirection:"column", gap:"0.75rem", marginBottom:"2.5rem" }}>
+                <div style={{ background:"rgba(16, 185, 129, 0.05)", border:`1px solid ${C.grn}`, borderRadius:"0.25rem", padding:"1rem" }}>
+                  <p style={{ fontSize:"0.65rem", color:C.grn, margin:"0 0 4px 0", letterSpacing:"0.05em" }}>[👥 CREW GENERATED ROUTINE]</p>
+                  <p style={{ color:C.txt, fontSize:"0.9rem", margin:0 }}>{crewQ}</p>
                 </div>
-                <div style={{ background:"#450a0a33", border:"1px solid #dc2626", borderRadius:"0.875rem", padding:"1rem" }}>
-                  <p style={{ fontSize:"0.68rem", color:C.red, margin:"0 0 6px 0" }}>🕵️ Impostor question ({impName})</p>
-                  <p style={{ color:C.txt, margin:0 }}>{impQ}</p>
+                <div style={{ background:"rgba(239, 68, 68, 0.05)", border:`1px solid ${C.red}`, borderRadius:"0.25rem", padding:"1rem" }}>
+                  <p style={{ fontSize:"0.65rem", color:C.red, margin:"0 0 4px 0", letterSpacing:"0.05em" }}>[🕵️ ANOMALOUS OVERRIDE STRAT // UNIT: {impName.toUpperCase()}]</p>
+                  <p style={{ color:C.txt, fontSize:"0.9rem", margin:0 }}>{impQ}</p>
                 </div>
               </div>
 
               {iAmHost
-                ? <button onClick={playAgain} style={btn()}>Play Again 🔄</button>
+                ? <button onClick={playAgain} style={btn(true, C.ind2)}>RE-ENGAGE LOGIC MODULES 🔄</button>
                 : <WaitCard host={host} />
               }
             </div>
@@ -786,7 +799,7 @@
         }
       }
 
-      return <div style={ctr}><p style={{ color:C.txt3 }}>⏳ Connecting…</p></div>;
+      return <div style={ctr} className="status-blink"><p style={{ color:C.cyan, letterSpacing:"0.2em" }}>&gt;&gt; LOADING SECURE CORE CORE HUD EXTENSIONS... &lt;&lt;</p></div>;
     }
 
     const container = document.getElementById('root');
