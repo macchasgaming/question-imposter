@@ -84,7 +84,6 @@
       }
     };
 
-    // Organized into unpredictable Groups
     const DEFAULT_GROUPS = [
       {
         id: 1,
@@ -256,6 +255,7 @@
       const [myVote, setMyVote] = useState("");
       const [submitted, setSub] = useState(false);
       const [voted, setVoted]   = useState(false);
+      const [timeLeft, setTimeLeft] = useState(15);
 
       // forms
       const [hostName, setHostName] = useState("");
@@ -279,6 +279,26 @@
         const t = setInterval(poll, 1500);
         return () => clearInterval(t);
       }, [roomCode, scr]);
+
+      // Local countdown loop for the Voting phase timer
+      useEffect(() => {
+        if (!gs || gs.phase !== "voting" || !gs.timerEnd) return;
+        
+        const interval = setInterval(() => {
+          const now = Date.now();
+          const rem = Math.max(0, Math.ceil((gs.timerEnd - now) / 1000));
+          setTimeLeft(rem);
+
+          // Force transition immediately to results when countdown hits 0
+          if (rem <= 0) {
+            clearInterval(interval);
+            // Any client can trigger the transition safely once local time expires
+            update({ phase: "results" });
+          }
+        }, 200);
+
+        return () => clearInterval(interval);
+      }, [gs?.phase, gs?.timerEnd]);
 
       // reset local state on phase change
       useEffect(() => {
@@ -309,7 +329,7 @@
       const createRoom = async () => {
         if (!hostName.trim() || groups.length === 0) return;
         const code = genCode();
-        const state = { phase:"lobby", players:[hostName.trim()], host:hostName.trim(), impIdx:null, crewQ:"", impQ:"", answers:{}, votes:{}, qGroups:groups, revealIndex:0 };
+        const state = { phase:"lobby", players:[hostName.trim()], host:hostName.trim(), impIdx:null, crewQ:"", impQ:"", answers:{}, votes:{}, qGroups:groups, revealIndex:0, readyPlayers:[] };
         const ok = await window.storage.set(`room:${code}`, JSON.stringify(state));
         if (ok) {
           setMyName(hostName.trim()); setRoomCode(code); setIsHost(true); setGs(state); setScr("game");
@@ -336,19 +356,13 @@
       const startGame = async () => {
         const players = gs.players;
         const impIdx  = Math.floor(Math.random() * players.length);
-        
-        // Pick a random group
         const targetGroup = gs.qGroups[Math.floor(Math.random() * gs.qGroups.length)];
-        
-        // Shuffle its questions
         const shuffled = [...targetGroup.questions].sort(() => Math.random() - 0.5);
-        
-        // Assign first to crew, second to imp (if group only has 1 question, fallback safely)
         const crewQ = shuffled[0] || "Answer honestly.";
         const impQ  = shuffled[1] || shuffled[0] || "Answer honestly.";
 
         const answers = Object.fromEntries(players.map(p => [p, null]));
-        await update({ phase:"answering", impIdx, crewQ, impQ, answers, votes:{}, revealIndex:0 });
+        await update({ phase:"answering", impIdx, crewQ, impQ, answers, votes:{}, revealIndex:0, readyPlayers:[] });
         setSub(false); setMyAns("");
       };
 
@@ -358,6 +372,28 @@
         setSub(true);
       };
 
+      const handleReadyToVote = async () => {
+        if (gs.readyPlayers.includes(myName)) return;
+        
+        await update(s => {
+          const updatedReady = [...s.readyPlayers, myName];
+          const threshold = (2 / 3) * s.players.length;
+          
+          // Check if 2/3 or more players are ready
+          if (updatedReady.length >= threshold) {
+            const votes = Object.fromEntries(s.players.map(p => [p, null]));
+            return {
+              ...s,
+              phase: "voting",
+              readyPlayers: updatedReady,
+              votes,
+              timerEnd: Date.now() + 15000 // Set exact network epoch time for 15s limit
+            };
+          }
+          return { ...s, readyPlayers: updatedReady };
+        });
+      };
+
       const submitVote = async () => {
         if (!myVote) return;
         await update(s => ({ ...s, votes:{ ...s.votes, [myName]:myVote } }));
@@ -365,12 +401,7 @@
       };
 
       const advanceTo = async (phase) => {
-        if (phase === "voting") {
-          const votes = Object.fromEntries(gs.players.map(p => [p, null]));
-          await update({ phase:"voting", votes }); setVoted(false); setMyVote("");
-        } else {
-          await update({ phase });
-        }
+        await update({ phase });
       };
 
       const advanceReveal = async () => {
@@ -378,17 +409,20 @@
       };
 
       const playAgain = async () => {
-        await update({ phase:"lobby", impIdx:null, crewQ:"", impQ:"", answers:{}, votes:{}, revealIndex:0 });
+        await update({ phase:"lobby", impIdx:null, crewQ:"", impQ:"", answers:{}, votes:{}, revealIndex:0, readyPlayers:[] });
         setSub(false); setVoted(false); setMyAns(""); setMyVote("");
       };
 
       // ── Computed ──────────────────────────────────────────────────────────────
       const allAnswered  = gs && gs.players.every(p => gs.answers[p] != null);
-      const allVoted     = gs && gs.players.every(p => gs.votes[p] != null);
       const answeredN    = gs ? gs.players.filter(p => gs.answers[p] != null).length : 0;
       const votedN       = gs ? gs.players.filter(p => gs.votes[p]   != null).length : 0;
       const amImposter   = gs && gs.players[gs.impIdx] === myName;
       const myQ          = gs ? (amImposter ? gs.impQ : gs.crewQ) : "";
+      
+      const readyCount   = gs?.readyPlayers?.length || 0;
+      const neededCount  = gs ? Math.ceil((2 / 3) * gs.players.length) : 0;
+      const iAmReady     = gs?.readyPlayers?.includes(myName);
 
       function voteResults() {
         const t = Object.fromEntries(gs.players.map(p => [p,0]));
@@ -592,7 +626,7 @@
           );
         }
 
-        // REVEAL WITH DRAMATIC ONE-BY-ONE SLIDESHOW
+        // REVEAL PHASE WITH 2/3 PROGRESSIVE VOTING OVERRIDE
         if (phase === "reveal") {
           const hasMoreToReveal = revealIndex < players.length;
 
@@ -630,68 +664,68 @@
 
                 {revealIndex === 0 && (
                   <div style={{ ...card(), textAlign:"center", padding:"2rem", borderStyle:"dashed", borderColor:C.bdr2 }}>
-                    <p style={{ color:C.txt4, margin:0, fontSize:"0.95rem" }}>🎭 Waiting for host to reveal the first card...</p>
+                    <p style={{ color:C.txt4, margin:0, fontSize:"0.95rem" }}>🎭 Waiting for host to reveal cards...</p>
                   </div>
                 )}
               </div>
 
-              {/* Host Controls */}
-              {iAmHost && (
-                <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem" }}>
-                  {hasMoreToReveal ? (
-                    <button onClick={advanceReveal} style={btn(true, C.ind2)}>
-                      Reveal Next Answer ✨ ({revealIndex + 1}/{players.length})
-                    </button>
-                  ) : (
-                    <button onClick={() => advanceTo("voting")} style={btn(true, "#059669")}>
-                      Proceed to Voting 🗳️
-                    </button>
-                  )}
-                </div>
+              {/* Host Control: Step through slideshow entries */}
+              {iAmHost && hasMoreToReveal && (
+                <button onClick={advanceReveal} style={{ ...btn(true, C.ind2), marginBottom: "1rem" }}>
+                  Reveal Next Answer ✨ ({revealIndex + 1}/{players.length})
+                </button>
               )}
 
-              {/* Player Waiting Feedback */}
-              {!iAmHost && (
-                <div style={{ ...card(), textAlign:"center", padding:"1rem" }}>
-                  <p style={{ color:C.txt3, margin:0, fontSize:"0.85rem" }}>
-                    {hasMoreToReveal ? `🔮 Host is reading the answers out loud...` : "💬 Ready! Waiting for host to initiate the vote..."}
-                  </p>
-                </div>
-              )}
+              {/* Global democratic choice: Anyone can initiate voting when 2/3 agree */}
+              <div style={{ ...card(iAmReady ? "#059669" : C.bdr), textAlign:"center" }}>
+                <p style={{ fontSize:"0.85rem", color:C.txt2, marginTop:0, marginBottom:"0.75rem" }}>
+                  🗳️ Ready to vote? ({readyCount}/{neededCount} players agreed)
+                </p>
+                <button 
+                  onClick={handleReadyToVote} 
+                  disabled={iAmReady}
+                  style={btn(!iAmReady, iAmReady ? C.bdr2 : "#059669")}
+                >
+                  {iAmReady ? "Waiting for 2/3 threshold..." : "I'm Ready to Vote! 🔒"}
+                </button>
+              </div>
             </div>
           );
         }
 
-        // VOTING
+        // VOTING PHASE WITH 15S AUTOMATED COUNTDOWN
         if (phase === "voting") {
-          if (voted) return (
-            <div style={ctr}>
-              <div style={{ fontSize:"3rem", marginBottom:"0.75rem" }}>🔒</div>
-              <h2 style={{ color:C.ind, fontSize:"1.5rem", fontWeight:"700", margin:"0 0 0.5rem 0" }}>Vote locked in!</h2>
-              <p style={{ color:C.txt3, marginBottom:"2rem" }}>Waiting for others… ({votedN}/{players.length})</p>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem", justifyContent:"center", maxWidth:"320px" }}>
-                {players.map(p => <Chip key={p} name={p} done={votes[p]!=null} isMe={p===myName} />)}
-              </div>
-              {iAmHost && allVoted && (
-                <button onClick={() => advanceTo("results")} style={{ ...btn(), width:"auto", padding:"0.9rem 2rem", marginTop:"2rem", fontSize:"1rem" }}>
-                  Reveal Results 🎯
-                </button>
-              )}
-              {!iAmHost && allVoted && <p style={{ color:C.txt4, fontSize:"0.8rem", marginTop:"1.5rem" }}>All votes in! Waiting for {host} to reveal…</p>}
-            </div>
-          );
           return (
             <div style={{ ...page, paddingTop:"2rem" }}>
-              <h2 style={{ color:C.ind, fontSize:"1.75rem", fontWeight:"800", margin:"0 0 0.25rem 0" }}>Your Vote</h2>
-              <p style={{ color:C.txt4, fontSize:"0.875rem", marginBottom:"1.5rem" }}>Who do you think got a different question?</p>
-              <div style={{ display:"flex", flexDirection:"column", gap:"0.625rem", marginBottom:"2rem" }}>
-                {players.filter(p => p!==myName).map(p => (
-                  <button key={p} onClick={() => setMyVote(p)} style={{ textAlign:"left", padding:"1rem", borderRadius:"1rem", border:`2px solid ${myVote===p?C.ind:C.bdr}`, background:myVote===p?C.ind3:C.bg2, color:C.txt, fontSize:"1rem", fontWeight:"500", cursor:"pointer" }}>
-                    {myVote===p?"✓ ":""}{p}
-                  </button>
-                ))}
+              {/* Dynamic 15s Countdown Header */}
+              <div style={{ textAlign:"center", marginBottom:"1.5rem", background:"#450a0a44", border:`1px solid ${C.red}`, padding:"0.75rem", borderRadius:"1rem" }}>
+                <p style={{ color:C.red, fontSize:"0.75rem", textTransform:"uppercase", letterSpacing:"0.1em", margin:"0 0 2px 0", fontWeight:"700" }}>🚨 Voting finishes automatically in:</p>
+                <h2 style={{ color:C.txt, fontSize:"2.25rem", fontWeight:"900", margin:0 }}>{timeLeft}s</h2>
               </div>
-              <button onClick={submitVote} disabled={!myVote} style={btn(!!myVote)}>Lock In Vote 🔒</button>
+
+              {voted ? (
+                <div style={{ textAlign:"center", padding:"2rem 0" }}>
+                  <div style={{ fontSize:"3rem", marginBottom:"0.75rem" }}>🔒</div>
+                  <h2 style={{ color:C.ind, fontSize:"1.5rem", fontWeight:"700", margin:"0 0 0.5rem 0" }}>Vote locked in!</h2>
+                  <p style={{ color:C.txt3, marginBottom:"2rem" }}>Players responded: ({votedN}/{players.length})</p>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem", justifyContent:"center", maxWidth:"320px" }}>
+                    {players.map(p => <Chip key={p} name={p} done={votes[p]!=null} isMe={p===myName} />)}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h2 style={{ color:C.ind, fontSize:"1.75rem", fontWeight:"800", margin:"0 0 0.25rem 0" }}>Your Vote</h2>
+                  <p style={{ color:C.txt4, fontSize:"0.875rem", marginBottom:"1.5rem" }}>Who do you think got a different question?</p>
+                  <div style={{ display:"flex", flexDirection:"column", gap:"0.625rem", marginBottom:"2rem" }}>
+                    {players.filter(p => p!==myName).map(p => (
+                      <button key={p} onClick={() => setMyVote(p)} style={{ textAlign:"left", padding:"1rem", borderRadius:"1rem", border:`2px solid ${myVote===p?C.ind:C.bdr}`, background:myVote===p?C.ind3:C.bg2, color:C.txt, fontSize:"1rem", fontWeight:"500", cursor:"pointer" }}>
+                        {myVote===p?"✓ ":""}{p}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={submitVote} disabled={!myVote} style={btn(!!myVote)}>Lock In Vote 🔒</button>
+                </div>
+              )}
             </div>
           );
         }
