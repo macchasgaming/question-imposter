@@ -84,18 +84,133 @@
       }
     };
 
-    const DEFAULTS = [
-      { id: 1, crew: "What's your favorite season and why?", imp: "What's your least favorite season and why?" },
-      { id: 2, crew: "Describe your perfect vacation destination", imp: "Describe somewhere you'd absolutely hate to visit" },
-      { id: 3, crew: "What's your go-to comfort food?", imp: "What food can you absolutely not stand?" },
-      { id: 4, crew: "What superpower would you choose and why?", imp: "What superpower would be most useless to you?" },
-      { id: 5, crew: "Describe your ideal Saturday morning", imp: "Describe your worst possible Saturday morning" },
-      { id: 6, crew: "What's the best gift you've ever received?", imp: "What's the worst gift you've ever received?" },
-      { id: 7, crew: "What's a skill you're proud of?", imp: "What's a skill you've always wanted but never learned?" },
-      { id: 8, crew: "What's your favorite way to spend a rainy day?", imp: "What do you hate doing on a rainy day?" },
+    // Organized into unpredictable Groups
+    const DEFAULT_GROUPS = [
+      {
+        id: 1,
+        questions: [
+          "What time do you think is optimal for going to sleep?",
+          "What time do you eat dinner?"
+        ]
+      },
+      {
+        id: 2,
+        questions: [
+          "What is the ideal temperature (Celsius)?",
+          "What temperature is too hot?",
+          "What is the oldest person you would date?",
+          "At what age should it be socially looked down upon to be unemployed?"
+        ]
+      },
+      {
+        id: 3,
+        questions: [
+          "How much time do you spend on your screen per day excluding school?",
+          "How much time do you spend exercising per day?"
+        ]
+      },
+      {
+        id: 4,
+        questions: [
+          "What is the ugliest block in Minecraft?",
+          "What block do you use the most in Minecraft?"
+        ]
+      },
+      {
+        id: 5,
+        questions: [
+          "At what age did you first get a smartphone?",
+          "At what age did you learn how to tie your shoes?"
+        ]
+      },
+      {
+        id: 6,
+        questions: [
+          "What language would you want to know how to speak (you don’t have to learn it)?",
+          "What language would you never want to learn?",
+          "What is the most beautiful language?",
+          "What is the ugliest language?"
+        ]
+      },
+      {
+        id: 7,
+        questions: [
+          "What country is on your bucket list?",
+          "What country would you never want to visit?",
+          "What country would you never want to go back to?",
+          "What country has the meanest people?",
+          "What country has the hottest women?",
+          "What country has the most beautiful scenery?",
+          "What country has a bad future?",
+          "What country generally has the best Eurovision entries?"
+        ]
+      },
+      {
+        id: 8,
+        questions: [
+          "What is the best biome in Minecraft?",
+          "What is the ugliest biome in Minecraft?"
+        ]
+      },
+      {
+        id: 9,
+        questions: [
+          "What is the most nostalgic song?",
+          "What song is overrated?",
+          "What song do you listen to the most?",
+          "What is the worst song of all time?",
+          "What song is overhated?",
+          "What is the most annoying internet song?"
+        ]
+      },
+      {
+        id: 10,
+        questions: [
+          "Who was the most memorable person from Ressu middle school (not one of us)?",
+          "Who was the most studious person from Ressu middle school?",
+          "Who was the least desirable person to hang out with from Ressu middle school?"
+        ]
+      },
+      {
+        id: 11,
+        questions: [
+          "How much money for you to eat 1 glass of Sushnevningiluzuzombuzva?",
+          "What is the most money you would spend on a wedding?",
+          "What yearly income should be “middle class” in a developed country?",
+          "What is the most you would pay for university (per year)?",
+          "What is the most money you would spend on a car?"
+        ]
+      },
+      {
+        id: 12,
+        questions: [
+          "What airline is the best (price, quality etc.)?",
+          "What airline is the worst?",
+          "What airline is the most luxurious?",
+          "What airline do you use the most often?"
+        ]
+      },
+      {
+        id: 13,
+        questions: [
+          "What is the most boring subject?",
+          "What subject had the worst teacher in Ressu middle school?",
+          "What is the most fun subject?",
+          "What is the easiest subject?",
+          "What is the hardest subject?",
+          "What is the most useless subject?"
+        ]
+      },
+      {
+        id: 14,
+        questions: [
+          "What is the best car?",
+          "What is the worst car?"
+        ]
+      }
     ];
 
-    let uid = DEFAULTS.length + 1;
+    let uid = DEFAULT_GROUPS.length + 1;
     const genCode = () => Math.random().toString(36).slice(2, 6).toUpperCase();
 
     // ── Styles ──────────────────────────────────────────────────────────────────
@@ -146,10 +261,9 @@
       const [hostName, setHostName] = useState("");
       const [joinName, setJoinName] = useState("");
       const [joinCode, setJoinCode] = useState("");
-      const [pairs, setPairs]       = useState(DEFAULTS);
-      const [showPF, setShowPF]     = useState(false);
-      const [crewIn, setCrewIn]     = useState("");
-      const [impIn, setImpIn]       = useState("");
+      const [groups, setGroups]     = useState(DEFAULT_GROUPS);
+      const [showGF, setShowGF]     = useState(false);
+      const [customQuestions, setCustomQuestions] = useState("");
       const [err, setErr]           = useState("");
 
       // ── Poll ──────────────────────────────────────────────────────────────────
@@ -193,9 +307,9 @@
 
       // ── Handlers ──────────────────────────────────────────────────────────────
       const createRoom = async () => {
-        if (!hostName.trim() || pairs.length === 0) return;
+        if (!hostName.trim() || groups.length === 0) return;
         const code = genCode();
-        const state = { phase:"lobby", players:[hostName.trim()], host:hostName.trim(), impIdx:null, pair:null, answers:{}, votes:{}, qPairs:pairs, revealIndex:0 };
+        const state = { phase:"lobby", players:[hostName.trim()], host:hostName.trim(), impIdx:null, crewQ:"", impQ:"", answers:{}, votes:{}, qGroups:groups, revealIndex:0 };
         const ok = await window.storage.set(`room:${code}`, JSON.stringify(state));
         if (ok) {
           setMyName(hostName.trim()); setRoomCode(code); setIsHost(true); setGs(state); setScr("game");
@@ -222,9 +336,19 @@
       const startGame = async () => {
         const players = gs.players;
         const impIdx  = Math.floor(Math.random() * players.length);
-        const pair    = gs.qPairs[Math.floor(Math.random() * gs.qPairs.length)];
+        
+        // Pick a random group
+        const targetGroup = gs.qGroups[Math.floor(Math.random() * gs.qGroups.length)];
+        
+        // Shuffle its questions
+        const shuffled = [...targetGroup.questions].sort(() => Math.random() - 0.5);
+        
+        // Assign first to crew, second to imp (if group only has 1 question, fallback safely)
+        const crewQ = shuffled[0] || "Answer honestly.";
+        const impQ  = shuffled[1] || shuffled[0] || "Answer honestly.";
+
         const answers = Object.fromEntries(players.map(p => [p, null]));
-        await update({ phase:"answering", impIdx, pair, answers, votes:{}, revealIndex:0 });
+        await update({ phase:"answering", impIdx, crewQ, impQ, answers, votes:{}, revealIndex:0 });
         setSub(false); setMyAns("");
       };
 
@@ -254,7 +378,7 @@
       };
 
       const playAgain = async () => {
-        await update({ phase:"lobby", impIdx:null, pair:null, answers:{}, votes:{}, revealIndex:0 });
+        await update({ phase:"lobby", impIdx:null, crewQ:"", impQ:"", answers:{}, votes:{}, revealIndex:0 });
         setSub(false); setVoted(false); setMyAns(""); setMyVote("");
       };
 
@@ -264,7 +388,7 @@
       const answeredN    = gs ? gs.players.filter(p => gs.answers[p] != null).length : 0;
       const votedN       = gs ? gs.players.filter(p => gs.votes[p]   != null).length : 0;
       const amImposter   = gs && gs.players[gs.impIdx] === myName;
-      const myQ          = gs?.pair ? (amImposter ? gs.pair.imp : gs.pair.crew) : "";
+      const myQ          = gs ? (amImposter ? gs.impQ : gs.crewQ) : "";
 
       function voteResults() {
         const t = Object.fromEntries(gs.players.map(p => [p,0]));
@@ -280,7 +404,7 @@
           <div style={{ fontSize:"4rem", marginBottom:"0.75rem" }}>🕵️</div>
           <h1 style={{ fontSize:"2.5rem", fontWeight:"900", color:C.ind, margin:"0 0 0.4rem 0" }}>Impostor</h1>
           <p style={{ color:C.txt4, fontSize:"0.9rem", marginBottom:"3rem", maxWidth:"260px", lineHeight:"1.5" }}>
-            One player secretly gets a different question. Can the crew figure out who?
+            One player secretly gets a different question from the same group. Can the crew figure out who?
           </p>
           <div style={{ width:"100%", maxWidth:"300px", display:"flex", flexDirection:"column", gap:"0.75rem" }}>
             <button onClick={() => setScr("hosting")} style={btn()}>🏠 Host a Game</button>
@@ -302,37 +426,38 @@
 
           <div style={{ marginBottom:"2rem" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.75rem" }}>
-              <label style={{ ...lbl, margin:0 }}>Question pairs ({pairs.length})</label>
-              <button onClick={() => setShowPF(!showPF)} style={{ background:"none", border:"none", color:C.ind, cursor:"pointer", fontSize:"0.8rem" }}>{showPF ? "Cancel" : "+ Add custom"}</button>
+              <label style={{ ...lbl, margin:0 }}>Question Groups ({groups.length})</label>
+              <button onClick={() => setShowGF(!showGF)} style={{ background:"none", border:"none", color:C.ind, cursor:"pointer", fontSize:"0.8rem" }}>{showGF ? "Cancel" : "+ Add custom group"}</button>
             </div>
-            {showPF && (
+            {showGF && (
               <div style={{ ...card(), marginBottom:"0.75rem" }}>
-                <label style={{ fontSize:"0.72rem", color:C.grn, display:"block", marginBottom:"0.25rem" }}>👥 Crewmate question</label>
-                <textarea style={{ ...inp, resize:"none", fontSize:"0.875rem", marginBottom:"0.75rem" }} rows={2} placeholder="All crewmates see this…" value={crewIn} onChange={e => setCrewIn(e.target.value)} />
-                <label style={{ fontSize:"0.72rem", color:C.red, display:"block", marginBottom:"0.25rem" }}>🕵️ Impostor question</label>
-                <textarea style={{ ...inp, resize:"none", fontSize:"0.875rem", marginBottom:"0.75rem" }} rows={2} placeholder="Only the impostor sees this…" value={impIn} onChange={e => setImpIn(e.target.value)} />
+                <label style={{ fontSize:"0.72rem", color:C.grn, display:"block", marginBottom:"0.25rem" }}>📝 Custom Group Questions (One per line)</label>
+                <textarea style={{ ...inp, resize:"none", fontSize:"0.875rem", marginBottom:"0.75rem" }} rows={4} placeholder="Question 1&#10;Question 2&#10;Question 3..." value={customQuestions} onChange={e => setCustomQuestions(e.target.value)} />
                 <button onClick={() => {
-                  if (!crewIn.trim() || !impIn.trim()) return;
-                  setPairs(p => [...p, { id:uid++, crew:crewIn.trim(), imp:impIn.trim() }]);
-                  setCrewIn(""); setImpIn(""); setShowPF(false);
-                }} style={{ ...btn(crewIn.trim()&&impIn.trim()), padding:"0.7rem", fontSize:"0.9rem" }}>Save Pair</button>
+                  const splitLines = customQuestions.split("\n").map(l => l.trim()).filter(Boolean);
+                  if (splitLines.length < 2) { alert("Please provide at least 2 questions for a group!"); return; }
+                  setGroups(g => [...g, { id:uid++, questions:splitLines }]);
+                  setCustomQuestions(""); setShowGF(false);
+                }} style={{ ...btn(customQuestions.trim()), padding:"0.7rem", fontSize:"0.9rem" }}>Save Group</button>
               </div>
             )}
             <div style={{ maxHeight:"14rem", overflowY:"auto", display:"flex", flexDirection:"column", gap:"0.5rem" }}>
-              {pairs.map(p => (
-                <div key={p.id} style={card()}>
+              {groups.map((g, i) => (
+                <div key={g.id} style={card()}>
                   <div style={{ display:"flex", gap:"0.5rem" }}>
                     <div style={{ flex:1 }}>
-                      <p style={{ fontSize:"0.7rem", color:C.grn, margin:"0 0 2px 0" }}>👥 {p.crew}</p>
-                      <p style={{ fontSize:"0.7rem", color:C.red, margin:0 }}>🕵️ {p.imp}</p>
+                      <p style={{ fontSize:"0.75rem", color:C.ind, margin:"0 0 4px 0", fontWeight:"700" }}>📦 Group #{i+1} ({g.questions.length} options)</p>
+                      {g.questions.map((q, qidx) => (
+                        <p key={qidx} style={{ fontSize:"0.68rem", color:C.txt3, margin:"0 0 2px 0", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>• {q}</p>
+                      ))}
                     </div>
-                    <button onClick={() => setPairs(ps => ps.filter(x => x.id!==p.id))} style={{ background:"none", border:"none", color:C.txt4, cursor:"pointer", fontSize:"1.2rem", lineHeight:1 }}>×</button>
+                    <button onClick={() => setGroups(gs => gs.filter(x => x.id!==g.id))} style={{ background:"none", border:"none", color:C.txt4, cursor:"pointer", fontSize:"1.2rem", lineHeight:1 }}>×</button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          <button onClick={createRoom} disabled={!hostName.trim()||pairs.length===0} style={btn(!!hostName.trim()&&pairs.length>0)}>Create Room 🏠</button>
+          <button onClick={createRoom} disabled={!hostName.trim()||groups.length===0} style={btn(!!hostName.trim()&&groups.length>0)}>Create Room 🏠</button>
         </div>
       );
 
@@ -359,16 +484,17 @@
 
       // ── GAME ──────────────────────────────────────────────────────────────────
       if (scr === "game" && gs) {
-        const { phase, players, host, impIdx, pair, answers, votes, revealIndex = 0 } = gs;
+        const { phase, players, host, impIdx, crewQ, impQ, answers, votes, revealIndex = 0 } = gs;
         const impName = players[impIdx];
         const iAmHost = myName === host;
 
         // LOBBY
         if (phase === "lobby") {
-          const addQP = () => {
-            if (!crewIn.trim()||!impIn.trim()) return;
-            update(s => ({ ...s, qPairs:[...s.qPairs, { id:uid++, crew:crewIn.trim(), imp:impIn.trim() }] }));
-            setCrewIn(""); setImpIn(""); setShowPF(false);
+          const addCustomGroup = () => {
+            const splitLines = customQuestions.split("\n").map(l => l.trim()).filter(Boolean);
+            if (splitLines.length < 2) return;
+            update(s => ({ ...s, qGroups:[...s.qGroups, { id:uid++, questions:splitLines }] }));
+            setCustomQuestions(""); setShowGF(false);
           };
           return (
             <div style={{ ...page, paddingTop:"2rem" }}>
@@ -398,27 +524,27 @@
               {iAmHost && (
                 <div style={{ marginBottom:"2rem" }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.75rem" }}>
-                    <label style={{ ...lbl, margin:0 }}>Questions ({gs.qPairs.length} pairs)</label>
-                    <button onClick={() => setShowPF(!showPF)} style={{ background:"none", border:"none", color:C.ind, cursor:"pointer", fontSize:"0.8rem" }}>{showPF?"Cancel":"+ Add custom"}</button>
+                    <label style={{ ...lbl, margin:0 }}>Groups ({gs.qGroups.length} Pools)</label>
+                    <button onClick={() => setShowGF(!showGF)} style={{ background:"none", border:"none", color:C.ind, cursor:"pointer", fontSize:"0.8rem" }}>{showGF?"Cancel":"+ Add custom group"}</button>
                   </div>
-                  {showPF && (
+                  {showGF && (
                     <div style={{ ...card(), marginBottom:"0.75rem" }}>
-                      <label style={{ fontSize:"0.72rem", color:C.grn, display:"block", marginBottom:"0.25rem" }}>👥 Crewmate question</label>
-                      <textarea style={{ ...inp, resize:"none", fontSize:"0.875rem", marginBottom:"0.75rem" }} rows={2} value={crewIn} onChange={e => setCrewIn(e.target.value)} placeholder="All crewmates see this…" />
-                      <label style={{ fontSize:"0.72rem", color:C.red, display:"block", marginBottom:"0.25rem" }}>🕵️ Impostor question</label>
-                      <textarea style={{ ...inp, resize:"none", fontSize:"0.875rem", marginBottom:"0.75rem" }} rows={2} value={impIn} onChange={e => setImpIn(e.target.value)} placeholder="Only the impostor sees this…" />
-                      <button onClick={addQP} style={{ ...btn(crewIn.trim()&&impIn.trim()), padding:"0.7rem", fontSize:"0.9rem" }}>Save</button>
+                      <label style={{ fontSize:"0.72rem", color:C.grn, display:"block", marginBottom:"0.25rem" }}>📝 Group Questions (One per line)</label>
+                      <textarea style={{ ...inp, resize:"none", fontSize:"0.875rem", marginBottom:"0.75rem" }} rows={3} value={customQuestions} onChange={e => setCustomQuestions(e.target.value)} placeholder="Question 1&#10;Question 2..." />
+                      <button onClick={addCustomGroup} style={{ ...btn(customQuestions.trim()), padding:"0.7rem", fontSize:"0.9rem" }}>Save Group</button>
                     </div>
                   )}
                   <div style={{ maxHeight:"10rem", overflowY:"auto", display:"flex", flexDirection:"column", gap:"0.5rem" }}>
-                    {gs.qPairs.map(p => (
-                      <div key={p.id} style={card()}>
+                    {gs.qGroups.map((g, idx) => (
+                      <div key={g.id} style={card()}>
                         <div style={{ display:"flex", gap:"0.5rem" }}>
                           <div style={{ flex:1 }}>
-                            <p style={{ fontSize:"0.68rem", color:C.grn, margin:"0 0 2px 0" }}>👥 {p.crew}</p>
-                            <p style={{ fontSize:"0.68rem", color:C.red, margin:0 }}>🕵️ {p.imp}</p>
+                            <p style={{ fontSize:"0.68rem", color:C.ind, margin:"0 0 2px 0", fontWeight:"700" }}>📦 Group #{idx+1}</p>
+                            {g.questions.map((q, qidx) => (
+                              <p key={qidx} style={{ fontSize:"0.65rem", color:C.txt3, margin:0 }}>• {q}</p>
+                            ))}
                           </div>
-                          <button onClick={() => update(s => ({ ...s, qPairs:s.qPairs.filter(x => x.id!==p.id) }))} style={{ background:"none", border:"none", color:C.txt4, cursor:"pointer", fontSize:"1.2rem", lineHeight:1 }}>×</button>
+                          <button onClick={() => update(s => ({ ...s, qGroups:s.qGroups.filter(x => x.id!==g.id) }))} style={{ background:"none", border:"none", color:C.txt4, cursor:"pointer", fontSize:"1.2rem", lineHeight:1 }}>×</button>
                         </div>
                       </div>
                     ))}
@@ -427,7 +553,7 @@
               )}
 
               {iAmHost
-                ? <button onClick={startGame} disabled={players.length<3||gs.qPairs.length===0} style={btn(players.length>=3&&gs.qPairs.length>0)}>Start Game 🚀</button>
+                ? <button onClick={startGame} disabled={players.length<3||gs.qGroups.length===0} style={btn(players.length>=3&&gs.qGroups.length>0)}>Start Game 🚀</button>
                 : <WaitCard host={host} />
               }
             </div>
@@ -466,7 +592,7 @@
           );
         }
 
-        // REVEAL (EDITED FOR DRAMATIC ONE-BY-ONE SLIDESHOW)
+        // REVEAL WITH DRAMATIC ONE-BY-ONE SLIDESHOW
         if (phase === "reveal") {
           const hasMoreToReveal = revealIndex < players.length;
 
@@ -482,7 +608,7 @@
 
               <div style={{ background:"#064e3b22", border:"1px solid #059669", borderRadius:"1rem", padding:"1rem", marginBottom:"1.5rem" }}>
                 <p style={{ fontSize:"0.68rem", color:C.grn, margin:"0 0 6px 0", textTransform:"uppercase", letterSpacing:"0.07em" }}>👥 The Crewmate Question</p>
-                <p style={{ color:C.txt, fontWeight:"500", margin:0 }}>{pair.crew}</p>
+                <p style={{ color:C.txt, fontWeight:"500", margin:0 }}>{crewQ}</p>
               </div>
 
               <div style={{ display:"flex", flexDirection:"column", gap:"0.75rem", marginBottom:"2rem" }}>
@@ -605,15 +731,15 @@
                 })}
               </div>
 
-              <h3 style={{ fontSize:"0.68rem", color:C.txt4, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"0.75rem" }}>The Questions</h3>
+              <h3 style={{ fontSize:"0.68rem", color:C.txt4, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"0.75rem" }}>The Questions Discovered</h3>
               <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem", marginBottom:"2rem" }}>
                 <div style={{ background:"#064e3b22", border:"1px solid #059669", borderRadius:"0.875rem", padding:"1rem" }}>
                   <p style={{ fontSize:"0.68rem", color:C.grn, margin:"0 0 6px 0" }}>👥 Crewmate question</p>
-                  <p style={{ color:C.txt, margin:0 }}>{pair.crew}</p>
+                  <p style={{ color:C.txt, margin:0 }}>{crewQ}</p>
                 </div>
                 <div style={{ background:"#450a0a33", border:"1px solid #dc2626", borderRadius:"0.875rem", padding:"1rem" }}>
                   <p style={{ fontSize:"0.68rem", color:C.red, margin:"0 0 6px 0" }}>🕵️ Impostor question ({impName})</p>
-                  <p style={{ color:C.txt, margin:0 }}>{pair.imp}</p>
+                  <p style={{ color:C.txt, margin:0 }}>{impQ}</p>
                 </div>
               </div>
 
