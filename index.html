@@ -23,6 +23,27 @@
       background: #2d3748;
       border-radius: 4px;
     }
+
+    /* Dramatic Entry Animation for Answers */
+    @keyframes dramaticReveal {
+      0% {
+        opacity: 0;
+        transform: scale(0.8) translateY(20px);
+        filter: blur(10px);
+      }
+      50% {
+        filter: blur(0px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        box-shadow: 0 0 20px rgba(129, 140, 248, 0.2);
+      }
+    }
+
+    .dramatic-card {
+      animation: dramaticReveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
   </style>
 </head>
 <body>
@@ -174,7 +195,7 @@
       const createRoom = async () => {
         if (!hostName.trim() || pairs.length === 0) return;
         const code = genCode();
-        const state = { phase:"lobby", players:[hostName.trim()], host:hostName.trim(), impIdx:null, pair:null, answers:{}, votes:{}, qPairs:pairs };
+        const state = { phase:"lobby", players:[hostName.trim()], host:hostName.trim(), impIdx:null, pair:null, answers:{}, votes:{}, qPairs:pairs, revealIndex:0 };
         const ok = await window.storage.set(`room:${code}`, JSON.stringify(state));
         if (ok) {
           setMyName(hostName.trim()); setRoomCode(code); setIsHost(true); setGs(state); setScr("game");
@@ -203,7 +224,7 @@
         const impIdx  = Math.floor(Math.random() * players.length);
         const pair    = gs.qPairs[Math.floor(Math.random() * gs.qPairs.length)];
         const answers = Object.fromEntries(players.map(p => [p, null]));
-        await update({ phase:"answering", impIdx, pair, answers, votes:{} });
+        await update({ phase:"answering", impIdx, pair, answers, votes:{}, revealIndex:0 });
         setSub(false); setMyAns("");
       };
 
@@ -228,8 +249,12 @@
         }
       };
 
+      const advanceReveal = async () => {
+        await update(s => ({ ...s, revealIndex: s.revealIndex + 1 }));
+      };
+
       const playAgain = async () => {
-        await update({ phase:"lobby", impIdx:null, pair:null, answers:{}, votes:{} });
+        await update({ phase:"lobby", impIdx:null, pair:null, answers:{}, votes:{}, revealIndex:0 });
         setSub(false); setVoted(false); setMyAns(""); setMyVote("");
       };
 
@@ -334,7 +359,7 @@
 
       // ── GAME ──────────────────────────────────────────────────────────────────
       if (scr === "game" && gs) {
-        const { phase, players, host, impIdx, pair, answers, votes } = gs;
+        const { phase, players, host, impIdx, pair, answers, votes, revealIndex = 0 } = gs;
         const impName = players[impIdx];
         const iAmHost = myName === host;
 
@@ -441,35 +466,75 @@
           );
         }
 
-        // REVEAL
-        if (phase === "reveal") return (
-          <div style={{ ...page, paddingTop:"2rem" }}>
-            <div style={{ textAlign:"center", marginBottom:"1.75rem" }}>
-              <div style={{ fontSize:"2rem", marginBottom:"0.5rem" }}>📋</div>
-              <h1 style={{ fontSize:"1.75rem", fontWeight:"800", margin:0 }}>Answers Revealed</h1>
-              <p style={{ color:C.txt4, fontSize:"0.875rem", marginTop:"0.25rem" }}>Discuss — whose answer seems suspicious?</p>
-            </div>
-            <div style={{ background:"#064e3b22", border:"1px solid #059669", borderRadius:"1rem", padding:"1rem", marginBottom:"1.25rem" }}>
-              <p style={{ fontSize:"0.68rem", color:C.grn, margin:"0 0 6px 0", textTransform:"uppercase", letterSpacing:"0.07em" }}>👥 The Crewmate Question</p>
-              <p style={{ color:C.txt, fontWeight:"500", margin:0 }}>{pair.crew}</p>
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:"0.625rem", marginBottom:"1.5rem" }}>
-              {players.map(p => (
-                <div key={p} style={card()}>
-                  <p style={{ fontSize:"0.78rem", fontWeight:"600", color:C.ind, margin:"0 0 5px 0" }}>{p}{p===myName?" (you)":""}</p>
-                  <p style={{ color:C.txt2, margin:0, lineHeight:"1.5" }}>{answers[p] ?? "(no answer)"}</p>
+        // REVEAL (EDITED FOR DRAMATIC ONE-BY-ONE SLIDESHOW)
+        if (phase === "reveal") {
+          const hasMoreToReveal = revealIndex < players.length;
+
+          return (
+            <div style={{ ...page, paddingTop:"2rem" }}>
+              <div style={{ textAlign:"center", marginBottom:"1.75rem" }}>
+                <div style={{ fontSize:"2rem", marginBottom:"0.5rem" }}>👀</div>
+                <h1 style={{ fontSize:"1.75rem", fontWeight:"800", margin:0 }}>Revealing Answers</h1>
+                <p style={{ color:C.txt4, fontSize:"0.875rem", marginTop:"0.25rem" }}>
+                  {hasMoreToReveal ? `Showing ${revealIndex} of ${players.length} responses...` : "All answers revealed! Discuss!"}
+                </p>
+              </div>
+
+              <div style={{ background:"#064e3b22", border:"1px solid #059669", borderRadius:"1rem", padding:"1rem", marginBottom:"1.5rem" }}>
+                <p style={{ fontSize:"0.68rem", color:C.grn, margin:"0 0 6px 0", textTransform:"uppercase", letterSpacing:"0.07em" }}>👥 The Crewmate Question</p>
+                <p style={{ color:C.txt, fontWeight:"500", margin:0 }}>{pair.crew}</p>
+              </div>
+
+              <div style={{ display:"flex", flexDirection:"column", gap:"0.75rem", marginBottom:"2rem" }}>
+                {players.slice(0, revealIndex).map((p, idx) => (
+                  <div 
+                    key={p} 
+                    className="dramatic-card"
+                    style={card(C.ind, "#131826")}
+                  >
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
+                      <p style={{ fontSize:"0.85rem", fontWeight:"700", color:C.ind, margin:0 }}>{p}{p===myName?" (you)":""}</p>
+                      <span style={{ fontSize:"0.65rem", color:C.txt4, background:C.bg3, padding:"2px 8px", borderRadius:"4px" }}>
+                        Response #{idx + 1}
+                      </span>
+                    </div>
+                    <p style={{ color:C.txt, margin:0, fontSize:"1.05rem", lineHeight:"1.5" }}>{answers[p] ?? "(no answer)"}</p>
+                  </div>
+                ))}
+
+                {revealIndex === 0 && (
+                  <div style={{ ...card(), textAlign:"center", padding:"2rem", borderStyle:"dashed", borderColor:C.bdr2 }}>
+                    <p style={{ color:C.txt4, margin:0, fontSize:"0.95rem" }}>🎭 Waiting for host to reveal the first card...</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Host Controls */}
+              {iAmHost && (
+                <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem" }}>
+                  {hasMoreToReveal ? (
+                    <button onClick={advanceReveal} style={btn(true, C.ind2)}>
+                      Reveal Next Answer ✨ ({revealIndex + 1}/{players.length})
+                    </button>
+                  ) : (
+                    <button onClick={() => advanceTo("voting")} style={btn(true, "#059669")}>
+                      Proceed to Voting 🗳️
+                    </button>
+                  )}
                 </div>
-              ))}
+              )}
+
+              {/* Player Waiting Feedback */}
+              {!iAmHost && (
+                <div style={{ ...card(), textAlign:"center", padding:"1rem" }}>
+                  <p style={{ color:C.txt3, margin:0, fontSize:"0.85rem" }}>
+                    {hasMoreToReveal ? `🔮 Host is reading the answers out loud...` : "💬 Ready! Waiting for host to initiate the vote..."}
+                  </p>
+                </div>
+              )}
             </div>
-            <div style={{ background:"#78350f22", border:"1px solid #d97706", borderRadius:"0.875rem", padding:"0.875rem", marginBottom:"1.5rem" }}>
-              <p style={{ color:"#fcd34d", fontSize:"0.875rem", margin:0 }}>💬 The impostor answered a completely different question. Discuss out loud, then vote!</p>
-            </div>
-            {iAmHost
-              ? <button onClick={() => advanceTo("voting")} style={btn()}>Start Voting 🗳️</button>
-              : <WaitCard host={host} />
-            }
-          </div>
-        );
+          );
+        }
 
         // VOTING
         if (phase === "voting") {
